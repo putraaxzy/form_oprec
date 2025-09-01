@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hasil Seleksi OSIS - SMK BATIK PERBAIK PURWOREJO</title>
+    <link rel="shortcut icon" href="img/osis.png" type="image/x-icon" />
+    <style>
+      @import "https://fonts.googleapis.com/css2?family=Lato:wght@100;300;400;700;900&display=swap";
+      @import "https://fonts.googleapis.com/css2?family=Roboto:wght@400;700;900&display=swap";
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        width: 100%;
+        height: 100%;
+      }
+
+      body {
+        width: 100%;
+        min-height: 100vh;
+        margin: 0;
+        padding: 20px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: "Lato", serif;
+      }
+
+      .main {
+        width: 100%;
+        max-width: 480px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        padding: 20px 0;
+      }
+
+      .hidden {
+        display: none !important;
+      }
+
+      /* Form Styles */
+      .index-form {
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 16px;
+        padding: 32px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        width: 100%;
+        margin-bottom: 20px;
+      }
+
+      .form-header {
+        text-align: center;
+        margin-bottom: 30px;
+      }
+
+      .form-header h2 {
+        color: #2c3e50;
+        margin: 0 0 10px 0;
+        font-size: 24px;
+        font-weight: 700;
+      }
+
+      .form-header p {
+        color: #7f8c8d;
+        margin: 0;
+        font-size: 14px;
+      }
+
+      .form-group {
+        margin-bottom: 20px;
+      }
+
+      .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        color: #2c3e50;
+        font-weight: 600;
+        font-size: 14px;
+      }
+
+      .form-group input {
+        width: 100%;
+        padding: 12px 16px;
+        border: 2px solid #e1e8ed;
+        border-radius: 8px;
+        font-size: 16px;
+        transition: all 0.3s ease;
+        background: white;
+      }
+
+      .form-group input:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+      }
+
+      .btn {
+        width: 100%;
+        padding: 14px 24px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+      }
+
+      .btn:active {
+        transform: translateY(0);
+      }
+
+      .btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      /* Result Card Styles */
+      .result-card {
+        background: white;
+        border-radius: 16px;
+        padding: 32px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        width: 100%;
+        margin-bottom: 20px;
+      }
+
+      .status-header {
+        text-align: center;
+        margin-bottom: 30px;
+      }
+
+      .status-badge {
+        display: inline-block;
+        padding: 8px 24px;
+        border-radius: 20px;
+        font-size: 14px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 16px;
+      }
+
+      .status-pending {
+        background: #f39c12;
+        color: white;
+      }
+
+      .status-approved {
+        background: #27ae60;
+        color: white;
+      }
+
+      .status-rejected {
+        background: #e74c3c;
+        color: white;
+      }
+
+      .status-title {
+        font-size: 24px;
+        font-weight: 700;
+        margin: 0;
+        color: #2c3e50;
+      }
+
+      .candidate-info {
+        margin: 30px 0;
+      }
+
+      .info-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 12px 0;
+        border-bottom: 1px solid #ecf0f1;
+      }
+
+      .info-row:last-child {
+        border-bottom: none;
+      }
+
+      .info-label {
+        font-weight: 600;
+        color: #7f8c8d;
+        font-size: 14px;
+      }
+
+      .info-value {
+        color: #2c3e50;
+        font-weight: 500;
+        text-align: right;
+        max-width: 60%;
+        word-wrap: break-word;
+      }
+
+      .qr-section {
+        text-align: center;
+        padding: 30px 20px;
+        background: #f8f9fa;
+        border-radius: 12px;
+        margin: 20px 0;
+      }
+
+      .qr-code {
+        max-width: 200px;
+        width: 100%;
+        height: auto;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      }
+
+      .whatsapp-link {
+        display: inline-block;
+        background: #25d366;
+        color: white;
+        padding: 12px 24px;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: 600;
+        margin-top: 16px;
+        transition: all 0.3s ease;
+      }
+
+      .whatsapp-link:hover {
+        background: #128c7e;
+        transform: translateY(-2px);
+      }
+
+      .back-btn {
+        background: #95a5a6;
+        margin-top: 20px;
+      }
+
+      .back-btn:hover {
+        background: #7f8c8d;
+      }
+
+      .loading {
+        text-align: center;
+        padding: 40px;
+        color: #7f8c8d;
+      }
+
+      .error {
+        color: #e74c3c;
+        background: #fadbd8;
+        padding: 16px;
+        border-radius: 8px;
+        margin: 20px 0;
+        text-align: center;
+        font-weight: 500;
+      }
+
+      @media (max-width: 480px) {
+        body {
+          padding: 10px;
+        }
+
+        .index-form,
+        .result-card {
+          padding: 24px;
+        }
+
+        .info-row {
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .info-value {
+          text-align: left;
+          max-width: 100%;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="main">
+      <!-- Search Form -->
+      <div id="searchForm" class="index-form">
+        <div class="form-header">
+          <h2>Cek Status Pendaftaran</h2>
+          <p>OSIS SMK BATIK PERBAIK PURWOREJO</p>
+        </div>
+
+        <form onsubmit="checkStatus(event)">
+          <div class="form-group">
+            <label for="ticket">Nomor Tiket Pendaftaran</label>
+            <input
+              type="text"
+              id="ticket"
+              name="ticket"
+              placeholder="Masukkan nomor tiket Anda..."
+              required
+            />
+          </div>
+
+          <button type="submit" class="btn" id="submitBtn">Cek Status</button>
+        </form>
+      </div>
+
+      <!-- Loading State -->
+      <div id="loadingState" class="result-card hidden">
+        <div class="loading">
+          <div style="font-size: 18px">Sedang memuat...</div>
+        </div>
+      </div>
+
+      <!-- Result Card -->
+      <div id="resultCard" class="result-card hidden">
+        <div class="status-header">
+          <div id="statusBadge" class="status-badge"></div>
+          <h1 id="statusTitle" class="status-title"></h1>
+        </div>
+
+        <div id="candidateInfo" class="candidate-info"></div>
+
+        <div id="qrSection" class="qr-section hidden">
+          <h3 style="color: #2c3e50; margin-bottom: 16px">
+            QR Code Akses Grup WhatsApp
+          </h3>
+          <img id="qrCode" class="qr-code" alt="QR Code" />
+          <br />
+          <a id="whatsappLink" class="whatsapp-link" target="_blank">
+            📱 Buka Grup WhatsApp
+          </a>
+        </div>
+
+        <button class="btn back-btn" onclick="showForm()">
+          Cek Tiket Lain
+        </button>
+      </div>
+
+      <!-- Error Message -->
+      <div id="errorMessage" class="error hidden"></div>
+    </div>
+
+    <script>
+      function showForm() {
+        document.getElementById("searchForm").classList.remove("hidden");
+        document.getElementById("resultCard").classList.add("hidden");
+        document.getElementById("errorMessage").classList.add("hidden");
+        document.getElementById("loadingState").classList.add("hidden");
+        document.getElementById("ticket").value = "";
+      }
+
+      function showLoading() {
+        document.getElementById("searchForm").classList.add("hidden");
+        document.getElementById("resultCard").classList.add("hidden");
+        document.getElementById("errorMessage").classList.add("hidden");
+        document.getElementById("loadingState").classList.remove("hidden");
+      }
+
+      function showError(message) {
+        document.getElementById("searchForm").classList.remove("hidden");
+        document.getElementById("resultCard").classList.add("hidden");
+        document.getElementById("loadingState").classList.add("hidden");
+        document.getElementById("errorMessage").textContent = message;
+        document.getElementById("errorMessage").classList.remove("hidden");
+      }
+
+      function showResult(data) {
+        document.getElementById("searchForm").classList.add("hidden");
+        document.getElementById("loadingState").classList.add("hidden");
+        document.getElementById("errorMessage").classList.add("hidden");
+
+        // Set status
+        const statusBadge = document.getElementById("statusBadge");
+        const statusTitle = document.getElementById("statusTitle");
+
+        if (data.status === "approved") {
+          statusBadge.textContent = "LULUS";
+          statusBadge.className = "status-badge status-approved";
+          statusTitle.textContent = "Selamat! Anda Diterima";
+          statusTitle.style.color = "#27ae60";
+        } else if (data.status === "rejected") {
+          statusBadge.textContent = "TIDAK LULUS";
+          statusBadge.className = "status-badge status-rejected";
+          statusTitle.textContent = "Maaf, Anda Belum Berhasil";
+          statusTitle.style.color = "#e74c3c";
+        } else {
+          statusBadge.textContent = "PENDING";
+          statusBadge.className = "status-badge status-pending";
+          statusTitle.textContent = "Sedang Diproses";
+          statusTitle.style.color = "#f39c12";
+        }
+
+        // Set candidate info
+        const candidateInfo = document.getElementById("candidateInfo");
+        candidateInfo.innerHTML = `
+          <div class="info-row">
+            <span class="info-label">Nama</span>
+            <span class="info-value">${data.nama}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Tempat, Tanggal Lahir</span>
+            <span class="info-value">${data.tempat_lahir}, ${formatDate(
+          data.tanggal_lahir
+        )}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Jenis Kelamin</span>
+            <span class="info-value">${data.jenis_kelamin}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Alamat</span>
+            <span class="info-value">${data.alamat_sekarang}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Divisi yang Diminati</span>
+            <span class="info-value">${data.divisi
+              .map((d) => capitalizeFirst(d.nama_divisi.replace(/_/g, " ")))
+              .join(", ")}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Nomor Tiket</span>
+            <span class="info-value">${data.ticket}</span>
+          </div>
+        `;
+
+        // Show QR code if approved
+        const qrSection = document.getElementById("qrSection");
+        if (data.status === "approved" && data.barcode_base64) {
+          document.getElementById("qrCode").src = data.barcode_base64;
+          document.getElementById("whatsappLink").href =
+            data.whatsapp_link || "#";
+          qrSection.classList.remove("hidden");
+        } else {
+          qrSection.classList.add("hidden");
+        }
+
+        document.getElementById("resultCard").classList.remove("hidden");
+      }
+
+      function formatDate(dateString) {
+        const date = new Date(dateString);
+        return date.toLocaleDateString("id-ID", {
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        });
+      }
+
+      function capitalizeFirst(str) {
+        return str.charAt(0).toUpperCase() + str.slice(1);
+      }
+
+      async function checkStatus(event) {
+        event.preventDefault();
+
+        const ticket = document.getElementById("ticket").value.trim();
+        if (!ticket) {
+          showError("Silakan masukkan nomor tiket");
+          return;
+        }
+
+        showLoading();
+
+        try {
+          const response = await fetch(`/api/ticket/${ticket}`);
+          const data = await response.json();
+
+          if (data.success) {
+            showResult(data);
+          } else {
+            showError(data.message || "Tiket tidak ditemukan");
+          }
+        } catch (error) {
+          console.error("Error:", error);
+          showError(
+            "Terjadi kesalahan saat mengecek status. Silakan coba lagi."
+          );
+        }
+      }
+
+      // Auto focus on ticket input
+      document.addEventListener("DOMContentLoaded", function () {
+        document.getElementById("ticket").focus();
+      });
+
+      // Allow Enter key to submit
+      document
+        .getElementById("ticket")
+        .addEventListener("keypress", function (event) {
+          if (event.key === "Enter") {
+            checkStatus(event);
+          }
+        });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cek Status Pendaftaran</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+      body {
+        background-color: #f0f2f5;
+      }
+      .container {
+        max-width: 600px;
+      }
+    </style>
+  </head>
+  <body class="flex items-center justify-center min-h-screen">
+    <div class="container mx-auto p-6 bg-white rounded-lg shadow-md">
+      <h1 class="text-3xl font-bold text-center text-gray-800 mb-8">
+        Cek Status Pendaftaran OSIS
+      </h1>
+
+      <form id="statusCheckForm" class="space-y-4">
+        <div>
+          <label for="ticket" class="block text-sm font-medium text-gray-700"
+            >Nomor Tiket</label
+          >
+          <input
+            type="text"
+            id="ticket"
+            name="ticket"
+            required
+            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            placeholder="Contoh: OSIS25-000123-A"
+          />
+        </div>
+        <button
+          type="submit"
+          class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+        >
+          Cek Status
+        </button>
+      </form>
+
+      <div
+        id="responseContainer"
+        class="mt-6 p-4 rounded-md text-center hidden"
+      >
+        <p class="font-bold text-lg" id="statusTitle"></p>
+        <p class="mt-2" id="statusMessage"></p>
+        <div id="qrCodeContainer" class="mt-4 flex justify-center hidden">
+          <img
+            id="qrCodeImage"
+            src=""
+            alt="QR Code"
+            class="w-48 h-48 border border-gray-300 p-2 rounded-md"
+          />
+        </div>
+        <div id="downloadPrintButtons" class="mt-6 space-x-4 hidden">
+          <button
+            id="downloadQr"
+            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+          >
+            Download QR (PNG)
+          </button>
+          <button
+            id="printQr"
+            class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          >
+            Print QR
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      document
+        .getElementById("statusCheckForm")
+        .addEventListener("submit", async function (event) {
+          event.preventDefault();
+
+          const ticketInput = document.getElementById("ticket").value;
+          const responseContainer =
+            document.getElementById("responseContainer");
+          const statusTitle = document.getElementById("statusTitle");
+          const statusMessage = document.getElementById("statusMessage");
+          const qrCodeContainer = document.getElementById("qrCodeContainer");
+          const qrCodeImage = document.getElementById("qrCodeImage");
+          const downloadPrintButtons = document.getElementById(
+            "downloadPrintButtons"
+          );
+
+          responseContainer.classList.add("hidden");
+          qrCodeContainer.classList.add("hidden");
+          downloadPrintButtons.classList.add("hidden");
+          responseContainer.className = "mt-6 p-4 rounded-md text-center"; // Reset classes
+
+          try {
+            const response = await fetch(`/api/ticket/${ticketInput}`);
+            const result = await response.json();
+
+            responseContainer.classList.remove("hidden");
+
+            if (result.success) {
+              if (result.data.status === "LOLOS") {
+                statusTitle.textContent = "Status: LOLOS ✅";
+                statusMessage.textContent = `Selamat, ${result.data.nama}! Anda telah lolos seleksi.`;
+                responseContainer.classList.add(
+                  "bg-green-100",
+                  "border",
+                  "border-green-400",
+                  "text-green-700"
+                );
+
+                if (result.data.qrCode) {
+                  qrCodeImage.src = result.data.qrCode;
+                  qrCodeContainer.classList.remove("hidden");
+                  downloadPrintButtons.classList.remove("hidden");
+                }
+              } else if (result.data.status === "PENDING") {
+                statusTitle.textContent = "Status: PENDING ⏳";
+                statusMessage.textContent = `Halo, ${result.data.nama}. Pendaftaran Anda sedang dalam proses review. Mohon tunggu informasi selanjutnya.`;
+                responseContainer.classList.add(
+                  "bg-yellow-100",
+                  "border",
+                  "border-yellow-400",
+                  "text-yellow-700"
+                );
+              } else if (result.data.status === "TIDAK_VALID") {
+                statusTitle.textContent = "Status: TIDAK VALID ❌";
+                statusMessage.textContent = `Mohon maaf, ${result.data.nama}. Pendaftaran Anda tidak valid.`;
+                responseContainer.classList.add(
+                  "bg-red-100",
+                  "border",
+                  "border-red-400",
+                  "text-red-700"
+                );
+              }
+            } else {
+              statusTitle.textContent = "Error";
+              statusMessage.textContent = result.message;
+              responseContainer.classList.add(
+                "bg-red-100",
+                "border",
+                "border-red-400",
+                "text-red-700"
+              );
+            }
+          } catch (error) {
+            console.error("Error:", error);
+            responseContainer.classList.remove("hidden");
+            responseContainer.classList.add(
+              "bg-red-100",
+              "border",
+              "border-red-400",
+              "text-red-700"
+            );
+            statusTitle.textContent = "Error";
+            statusMessage.textContent =
+              "Terjadi kesalahan jaringan atau server.";
+          }
+        });
+
+      document
+        .getElementById("downloadQr")
+        .addEventListener("click", function () {
+          const qrCodeImage = document.getElementById("qrCodeImage");
+          const a = document.createElement("a");
+          a.href = qrCodeImage.src;
+          a.download = `QR_OSIS_${document.getElementById("ticket").value}.png`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        });
+
+      document.getElementById("printQr").addEventListener("click", function () {
+        const qrCodeImage = document.getElementById("qrCodeImage");
+        const printWindow = window.open("", "_blank");
+        printWindow.document.write(
+          "<html><head><title>Print QR Code</title></head><body>"
+        );
+        printWindow.document.write(
+          '<img src="' + qrCodeImage.src + '" style="max-width: 100%;">'
+        );
+        printWindow.document.write("</body></html>");
+        printWindow.document.close();
+        printWindow.print();
+      });
+    </script>
+  </body>
+</html>

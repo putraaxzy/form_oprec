@@ -1,0 +1,2080 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pendaftaran OSIS 2025/2026</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    screens: {
+                        'xs': '480px',
+                    },
+                    colors: {
+                        primary: {
+                            50: '#eff6ff',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap');
+        
+        * {
+            font-family: 'Poppins', sans-serif;
+        }
+        
+        body {
+            background: #ffffff;
+            min-height: 100vh;
+        }
+        
+        /* Glass Morphism */
+        .glass-card {
+            background: rgba(0, 0, 0, 0.05);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.1);
+        }
+        
+        .form-section {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+        }
+        
+        /* Progress Steps */
+        .step-line {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.05));
+            transform: translateY(-50%);
+            z-index: 1;
+        }
+        
+        .step-circle {
+            background: #f3f4f6;
+            color: #6b7280;
+            border: 2px solid #d1d5db;
+            z-index: 2;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+        
+        .step-circle.active {
+            background: #667eea;
+            color: white;
+            border: 2px solid #667eea;
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+        }
+        
+        /* Floating Labels */
+        .floating-label {
+            position: relative;
+        }
+        
+        .floating-label input,
+        .floating-label textarea {
+            background: white;
+            border: 2px solid #e5e7eb;
+            transition: all 0.3s ease;
+        }
+        
+        .floating-label input:focus,
+        .floating-label textarea:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+            outline: none;
+        }
+        
+        .floating-label label {
+            position: absolute;
+            left: 16px;
+            top: 14px;
+            background: white;
+            padding: 0 8px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #6b7280;
+            transition: all 0.3s ease;
+            pointer-events: none;
+        }
+        
+        .floating-label input:focus + label,
+        .floating-label input:not(:placeholder-shown) + label,
+        .floating-label textarea:focus + label,
+        .floating-label textarea:not(:placeholder-shown) + label {
+            top: -8px;
+            font-size: 12px;
+            color: #667eea;
+            font-weight: 600;
+        }
+        
+        .input-field {
+            background: white;
+            border: 2px solid #e5e7eb;
+            transition: all 0.3s ease;
+        }
+        
+        .input-field:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+            outline: none;
+        }
+        
+        /* Photo Preview */
+        .photo-preview {
+            width: 120px;
+            height: 160px;
+            background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+            border: 2px dashed #cbd5e1;
+        }
+        
+        /* Modern Buttons */
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            font-weight: 600;
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 35px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            border: none;
+            font-weight: 600;
+            box-shadow: 0 8px 20px rgba(16, 185, 129, 0.3);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .btn-success:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 12px 28px rgba(16, 185, 129, 0.4);
+        }
+        
+        /* Animations */
+        .fade-in {
+            animation: fadeIn 0.8s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .page {
+            display: none;
+        }
+        
+        .page.active {
+            display: block;
+            animation: slideIn 0.6s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(50px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        
+        /* Table Styling */
+        .table-modern {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .table-modern thead {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+        }
+        
+        .table-modern th {
+            padding: 16px;
+            color: white;
+            font-weight: 600;
+            text-align: left;
+        }
+        
+        .table-modern td {
+            padding: 12px 16px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        
+        .table-modern td input,
+        .table-modern td select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+        
+        .table-modern td input:focus,
+        .table-modern td select:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            outline: none;
+        }
+
+        
+        .input-field {
+            transition: all 0.3s ease;
+            border: 2px solid #e5e7eb;
+            background: white;
+        }
+        
+        .input-field:focus {
+            border-color: white; /* Changed to white */
+            box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.3); /* Adjusted shadow for white focus */
+        }
+        
+        .photo-preview {
+            width: 120px;
+            height: 160px;
+            border: 2px dashed #d1d5db;
+            background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .photo-preview:hover {
+            border-color: #3b82f6;
+            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        }
+        
+        .photo-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 4px;
+        }
+        
+        .table-modern {
+            border-collapse: separate;
+            border-spacing: 0;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        
+        .table-modern th {
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            color: #374151;
+            font-weight: 600;
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .table-modern td {
+            padding: 12px 16px;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        
+        .table-modern tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .table-modern input, .table-modern select {
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 8px 12px;
+            width: 100%;
+            transition: all 0.3s ease;
+        }
+        
+        .table-modern input:focus, .table-modern select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+        }
+        
+        .divisi-card {
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 16px;
+            padding: 20px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .divisi-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+            transition: left 0.5s;
+        }
+        
+        .divisi-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 10px 25px -5px rgba(102, 126, 234, 0.2);
+            transform: translateY(-2px);
+        }
+        
+        .divisi-card:hover::before {
+            left: 100%;
+        }
+        
+        .divisi-card.selected {
+            border-color: #667eea;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(102, 126, 234, 0.1) 100%);
+            box-shadow: 0 0 20px rgba(102, 126, 234, 0.15);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: white;
+            border: none;
+            padding: 14px 28px;
+            border-radius: 12px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 14px -5px rgba(59, 130, 246, 0.4);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px -5px rgba(59, 130, 246, 0.5);
+        }
+        
+        .btn-secondary {
+            background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+            color: white;
+            border: none;
+            padding: 14px 28px;
+            border-radius: 12px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            border: none;
+            padding: 14px 28px;
+            border-radius: 12px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 14px -5px rgba(16, 185, 129, 0.4);
+        }
+        
+        .modal-backdrop {
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(8px);
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
+        }
+        
+        .floating-label {
+            position: relative;
+        }
+        
+        .floating-label label {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #6b7280;
+            transition: all 0.3s ease;
+            pointer-events: none;
+            background: white;
+            padding: 0 4px;
+        }
+        
+        .floating-label input:focus + label,
+        .floating-label input:not(:placeholder-shown) + label {
+            top: 0;
+            font-size: 12px;
+            color: white; /* Changed to white */
+        }
+        
+        .section-header {
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            border-left: 4px solid #3b82f6;
+        }
+        
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .success-checkmark {
+            font-size: 60px;
+            color: #10b981;
+            animation: checkmarkScale 0.6s ease-in-out;
+        }
+        
+        @keyframes checkmarkScale {
+            0% { transform: scale(0); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+        
+        /* Responsive adjustments */
+        @media (max-width: 1200px) {
+            .max-w-6xl {
+                max-width: 4xl;
+            }
+            
+            .text-6xl {
+                font-size: 3.5rem;
+            }
+            
+            .text-3xl {
+                font-size: 1.8rem;
+            }
+        }
+        
+        @media (max-width: 1024px) {
+            .max-w-6xl {
+                max-width: 3xl;
+                padding: 0 1rem;
+            }
+            
+            .form-section {
+                padding: 20px;
+                margin: 16px;
+            }
+            
+            .glass-card {
+                padding: 32px !important;
+            }
+            
+            .text-6xl {
+                font-size: 3rem;
+            }
+            
+            .w-16.h-16 {
+                width: 3.5rem;
+                height: 3.5rem;
+            }
+            
+            .text-xl {
+                font-size: 1.125rem;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .max-w-6xl {
+                padding: 0 0.5rem;
+            }
+            
+            .py-8 {
+                padding-top: 1.5rem;
+                padding-bottom: 1.5rem;
+            }
+            
+            .mb-12 {
+                margin-bottom: 2rem;
+            }
+            
+            .form-section {
+                margin: 8px;
+                padding: 16px;
+                border-radius: 1rem;
+            }
+            
+            .glass-card {
+                padding: 24px !important;
+                border-radius: 1.5rem !important;
+            }
+            
+            .text-6xl {
+                font-size: 2.5rem !important;
+                line-height: 1.2;
+            }
+            
+            .text-3xl {
+                font-size: 1.5rem !important;
+            }
+            
+            .text-xl {
+                font-size: 1rem !important;
+            }
+            
+            .w-16.h-16 {
+                width: 3rem !important;
+                height: 3rem !important;
+            }
+            
+            .step-circle {
+                width: 3rem !important;
+                height: 3rem !important;
+                font-size: 1rem !important;
+            }
+            
+            .grid {
+                grid-template-columns: 1fr !important;
+                gap: 1rem !important;
+            }
+            
+            .md\\:grid-cols-2 {
+                grid-template-columns: 1fr !important;
+            }
+            
+            .p-8 {
+                padding: 1rem !important;
+            }
+            
+            .p-6 {
+                padding: 1rem !important;
+            }
+            
+            .rounded-2xl {
+                border-radius: 1rem !important;
+            }
+            
+            .table-modern {
+                font-size: 0.875rem;
+                overflow-x: auto;
+            }
+            
+            .table-modern th,
+            .table-modern td {
+                padding: 8px 12px;
+                min-width: 120px;
+            }
+            
+            .photo-preview {
+                width: 90px; /* Increased width */
+                height: 120px; /* Increased height */
+                flex-shrink: 0;
+            }
+            
+            .floating-label input,
+            .floating-label textarea {
+                padding: 12px 16px;
+                font-size: 1rem;
+            }
+            
+            .floating-label label {
+                font-size: 0.875rem;
+            }
+            
+            .btn-primary,
+            .btn-success {
+                padding: 12px 20px;
+                font-size: 0.875rem;
+            }
+        }
+        
+        @media (max-width: 640px) {
+            .px-4 {
+                padding-left: 0.75rem;
+                padding-right: 0.75rem;
+            }
+            
+            .py-8 {
+                padding-top: 1rem;
+                padding-bottom: 1rem;
+            }
+            
+            .text-6xl {
+                font-size: 2rem !important;
+            }
+            
+            .text-3xl {
+                font-size: 1.25rem !important;
+            }
+            
+            .step-circle {
+                width: 2.5rem !important;
+                height: 2.5rem !important;
+                font-size: 0.875rem !important;
+            }
+            
+            .max-w-md {
+                max-width: 16rem;
+            }
+            
+            .form-section {
+                margin: 4px;
+                padding: 12px;
+            }
+            
+            .glass-card {
+                padding: 16px !important;
+            }
+            
+            .p-8 {
+                padding: 0.75rem !important;
+            }
+            
+            .p-6 {
+                padding: 0.75rem !important;
+            }
+            
+            .floating-label input,
+            .floating-label textarea,
+            .input-field {
+                padding: 10px 12px;
+                font-size: 0.875rem;
+            }
+            
+            .floating-label label {
+                font-size: 0.75rem;
+            }
+            
+            .btn-primary,
+            .btn-success {
+                padding: 10px 16px;
+                font-size: 0.75rem;
+                width: 100%;
+                justify-content: center;
+            }
+            
+            .flex.justify-between {
+                flex-direction: column;
+                gap: 0.75rem;
+            }
+            
+            .flex.justify-end {
+                justify-content: stretch;
+            }
+            
+            .table-modern {
+                display: block;
+                overflow-x: auto;
+                white-space: nowrap;
+            }
+            
+        .table-modern thead {
+            display: none; /* Hide table header on small screens */
+        }
+        
+        .table-modern tbody tr {
+            margin-bottom: 1rem;
+            display: block;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 1rem;
+            background: white;
+        }
+        
+        .table-modern td {
+            display: block;
+            text-align: right;
+            padding: 0.5rem 0;
+            border-bottom: none;
+        }
+        
+        .table-modern td:last-child {
+            border-bottom: none;
+        }
+        
+        .table-modern td:before {
+            content: attr(data-label);
+            float: left;
+            font-weight: 600;
+            color: #374151;
+        }
+        
+        .table-modern td input,
+        .table-modern td select {
+            width: 100%; /* Make input take full width */
+            display: block; /* Place input below the label */
+            margin-left: 0; /* Remove left margin */
+            margin-top: 0.25rem; /* Add a small top margin for spacing */
+        }
+        
+        .photo-preview {
+            width: 80px; /* Increased width */
+            height: 105px; /* Increased height */
+        }
+            
+            .text-2xl {
+                font-size: 1.25rem !important;
+            }
+            
+            .text-lg {
+                font-size: 1rem !important;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .text-6xl {
+                font-size: 1.75rem !important;
+            }
+            
+            .text-3xl {
+                font-size: 1.125rem !important;
+            }
+            
+            .form-section {
+                margin: 2px;
+                padding: 8px;
+            }
+            
+            .step-circle {
+                width: 2rem !important;
+                height: 2rem !important;
+                font-size: 0.75rem !important;
+            }
+            
+            .max-w-md {
+                max-width: 12rem;
+            }
+        }
+        
+        /* Utility classes for better responsive behavior */
+        .mobile-stack > * {
+            width: 100% !important;
+        }
+        
+        .mobile-center {
+            text-align: center !important;
+        }
+        
+        .mobile-hidden {
+            display: none !important;
+        }
+        
+        @media (min-width: 769px) {
+            .desktop-flex {
+                display: flex !important;
+            }
+            
+            .desktop-grid {
+                display: grid !important;
+            }
+        }
+        
+        /* Smooth scrolling */
+        html {
+            scroll-behavior: smooth;
+        }
+        
+        /* Better focus states for accessibility */
+        .input-field:focus,
+        .floating-label input:focus,
+        .floating-label textarea:focus {
+            outline: 2px solid #667eea;
+            outline-offset: 2px;
+        }
+
+    </style>
+    <link rel="shortcut icon" href="img/osis.png" type="image/x-icon" />
+</head>
+<body class="min-h-screen bg-gray-50">
+    <div class="relative min-h-screen py-8 px-4 lg:px-8">
+        <div class="max-w-6xl mx-auto lg:px-4">
+            <!-- Header Section -->
+            <div class="text-center mb-12 fade-in">
+                <div class="glass-card rounded-3xl p-10 mb-8">
+                    <img src="img/osis.png" alt="OSIS Logo" class="mx-auto mb-6 w-32 h-32 object-contain">
+                    <h1 class="text-6xl md:text-6xl sm:text-4xl font-bold text-gray-800 mb-4 tracking-tight">
+                        PENDAFTARAN OSIS
+                    </h1>
+                    <p class="text-3xl md:text-3xl sm:text-xl text-gray-700 font-semibold mb-2">
+                        Periode 2025/2026
+                    </p>
+                    <p class="text-xl md:text-xl sm:text-base text-gray-600 font-medium">
+                        🚀 Mari bergabung dan wujudkan perubahan bersama! 🌟
+                    </p>
+                </div>
+            </div>
+
+            <!-- Progress Steps -->
+            <div class="flex justify-center items-center mb-12 px-4 relative fade-in">
+                <div class="step-line w-full max-w-md"></div>
+                <div class="flex justify-between items-center w-full max-w-md relative">
+                    <div class="step-circle active w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold">
+                        1
+                    </div>
+                    <div class="step-circle w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold">
+                        2
+                    </div>
+                </div>
+            </div>
+
+            <!-- Form Container -->
+            <div class="form-section rounded-3xl p-6 lg:p-10 shadow-2xl fade-in">
+                <form id="registrationForm" enctype="multipart/form-data">
+                    <!-- Page 1: Data Diri dan Pengalaman -->
+                    <div id="page1" class="page active">
+                        <div class="bg-gradient-to-r from-purple-500 to-blue-500 rounded-2xl p-4 lg:p-8 mb-8 text-white">
+                            <h2 class="text-2xl lg:text-4xl font-bold flex flex-col lg:flex-row lg:items-center mb-4">
+                                <span class="w-10 h-10 lg:w-12 lg:h-12 bg-white text-purple-500 rounded-full flex items-center justify-center mb-2 lg:mb-0 lg:mr-4 text-lg lg:text-2xl font-black mx-auto lg:mx-0">1</span>
+                                <span class="text-center lg:text-left">DATA DIRI DAN PENGALAMAN</span>
+                            </h2>
+                            <p class="text-purple-100 text-lg text-center lg:text-left lg:ml-16">Lengkapi informasi pribadi dan pengalaman organisasi Anda</p>
+                        </div>
+
+            <!-- Data Pribadi -->
+            <div class="mb-8">
+              <h4
+                class="text-xl font-semibold text-gray-800 mb-4 bg-gray-100 p-3 rounded section-header"
+              >
+                Data Pribadi
+              </h4>
+
+              <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-2"
+                    >Nama Lengkap *</label
+                  >
+                  <input
+                    type="text"
+                    name="nama_lengkap"
+                    required
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg input-field"
+                  />
+                </div>
+
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-2"
+                    >Nama Panggilan *</label
+                  >
+                  <input
+                    type="text"
+                    name="nama_panggilan"
+                    required
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg input-field"
+                  />
+                </div>
+
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-2"
+                    >Kelas *</label
+                  >
+                  <select
+                    name="kelas"
+                    required
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg input-field"
+                  >
+                    <option value="">Pilih Kelas</option>
+                    <option value="X">X</option>
+                    <option value="XI">XI</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-2"
+                    >Jurusan *</label
+                  >
+                  <select
+                    name="jurusan"
+                    required
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg input-field"
+                  >
+                    <option value="">Pilih Jurusan</option>
+                    <option value="TJKT">TJKT</option>
+                    <option value="PPLG">PPLG</option>
+                    <option value="PM">PM</option>
+                    <option value="MPLB">MPLB</option>
+                    <option value="AK">AK</option>
+                    <option value="TKJ">TKJ</option>
+                    <option value="RPL">RPL</option>
+                    <option value="MP">MP</option>
+                    <option value="BD">BD</option>
+                    <option value="AKL">AKL</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-2"
+                    >Tempat Lahir *</label
+                  >
+                  <input
+                    type="text"
+                    name="tempat_lahir"
+                    required
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg input-field"
+                  />
+                </div>
+
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-2"
+                    >Tanggal Lahir *</label
+                  >
+                  <input
+                    type="date"
+                    name="tanggal_lahir"
+                    required
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg input-field"
+                  />
+                </div>
+
+                <div class="md:col-span-2">
+                  <label class="block text-sm font-medium text-gray-700 mb-2"
+                    >Alamat Lengkap *</label
+                  >
+                  <textarea
+                    name="alamat"
+                    required
+                    rows="3"
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg input-field"
+                    placeholder="Tuliskan alamat lengkap tempat tinggal Anda saat ini..."
+                  ></textarea>
+                </div>
+
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-2"
+                    >Agama *</label
+                  >
+                  <select
+                    name="agama"
+                    required
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg input-field"
+                  >
+                    <option value="">Pilih Agama</option>
+                    <option value="Islam">Islam</option>
+                    <option value="Kristen">Kristen</option>
+                    <option value="Katolik">Katolik</option>
+                    <option value="Hindu">Hindu</option>
+                    <option value="Buddha">Buddha</option>
+                    <option value="Konghucu">Konghucu</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-2"
+                    >Jenis Kelamin *</label
+                  >
+                  <select
+                    name="jenis_kelamin"
+                    required
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg input-field"
+                  >
+                    <option value="">Pilih Jenis Kelamin</option>
+                    <option value="Laki-laki">Laki-laki</option>
+                    <option value="Perempuan">Perempuan</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-2"
+                    >Nomor Telepon *</label
+                  >
+                  <input
+                    type="tel"
+                    name="nomor_telepon"
+                    required
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg input-field"
+                    placeholder="08xxxxxxxxxx"
+                  />
+                </div>
+
+
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-2"
+                    >Hobi</label
+                  >
+                  <input
+                    type="text"
+                    name="hobi"
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg input-field"
+                  />
+                </div>
+
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-2"
+                    >Motto Hidup</label
+                  >
+                  <input
+                    type="text"
+                    name="motto"
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg input-field"
+                  />
+                </div>
+              </div>
+
+              <!-- Foto 3x4 -->
+              <div class="mt-6">
+                <label class="block text-sm font-medium text-gray-700 mb-2"
+                  >Foto 3x4 *</label
+                >
+                <div class="flex items-start gap-4">
+                  <div class="photo-preview" id="photoPreview">
+                    <span class="text-gray-400 text-center text-xs"
+                      >Foto 3x4<br />akan muncul di sini</span
+                    >
+                  </div>
+                  <div class="flex-1">
+                    <input
+                      type="file"
+                      name="foto"
+                      id="fotoInput"
+                      accept="image/*"
+                      required
+                      class="w-full px-4 py-2 border border-gray-300 rounded-lg input-field"
+                    />
+                    <p class="text-xs text-gray-500 mt-1">
+                      Upload foto 3x4 (JPG, PNG, max 2MB)
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Pengalaman Organisasi -->
+            <div class="mb-8">
+              <h4 class="text-xl font-semibold text-gray-800 mb-4 bg-gray-100 p-3 rounded section-header flex items-center">
+                <svg class="w-5 h-5 text-blue-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                </svg>
+                Pengalaman Organisasi (Opsional)
+              </h4>
+              
+              <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <p class="text-sm text-blue-800">
+                  <strong>💡 Tips:</strong> Jika Anda belum memiliki pengalaman organisasi, tidak apa-apa! 
+                  Bagian ini bersifat opsional. Anda dapat mengosongkannya atau menambahkan pengalaman informal 
+                  seperti kepanitiaan acara sekolah, volunteer, atau kegiatan ekstrakurikuler.
+                </p>
+              </div>
+
+              <table class="table-modern w-full">
+                <thead>
+                  <tr>
+                    <th width="35%">Nama Organisasi/Kegiatan</th>
+                    <th width="25%">Posisi/Peran</th>
+                    <th width="20%">Periode</th>
+                    <th width="10%">Sertifikat</th>
+                    <th width="10%">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody id="organisasiTable">
+                  <tr>
+                    <td data-label="Nama Organisasi/Kegiatan">
+                      <input
+                        type="text"
+                        name="organisasi_nama[]"
+                        placeholder="Contoh: OSIS, Pramuka, Panitia Acara, PMR"
+                        class="input-field"
+                      />
+                    </td>
+                    <td data-label="Posisi/Peran">
+                      <input
+                        type="text"
+                        name="organisasi_jabatan[]"
+                        placeholder="Contoh: Anggota, Sekretaris, Koordinator"
+                        class="input-field"
+                      />
+                    </td>
+                    <td data-label="Periode">
+                      <input
+                        type="text"
+                        name="organisasi_tahun[]"
+                        placeholder="2023-2024 atau 2024"
+                        class="input-field"
+                      />
+                    </td>
+                    <td data-label="Sertifikat">
+                      <input
+                        type="file"
+                        name="organisasi_sertifikat[]"
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        class="input-field text-sm"
+                        title="Upload sertifikat jika ada (opsional)"
+                      />
+                      <p class="text-xs text-gray-500 mt-1">PDF/JPG (opsional)</p>
+                    </td>
+                    <td data-label="Aksi" class="text-center">
+                      <button
+                        type="button"
+                        onclick="removeRow(this)"
+                        class="text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-red-100 transition-colors"
+                        title="Hapus baris ini"
+                      >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                        </svg>
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              <div class="flex flex-col sm:flex-row gap-2 mt-4">
+                <button
+                  type="button"
+                  onclick="addOrganisasiRow()"
+                  class="px-5 py-2 btn-success inline-flex items-center justify-center space-x-2 rounded-lg flex-1 sm:flex-initial"
+                >
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                  </svg>
+                  <span>Tambah Pengalaman</span>
+                </button>
+                <button
+                  type="button"
+                  onclick="clearOrganisasi()"
+                  class="px-5 py-2 bg-gray-500 hover:bg-gray-600 text-white inline-flex items-center justify-center space-x-2 rounded-lg transition-colors"
+                >
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                  </svg>
+                  <span>Kosongkan Semua</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Prestasi -->
+            <div class="mb-8">
+              <h4 class="text-xl font-semibold text-gray-800 mb-4 bg-gray-100 p-3 rounded section-header flex items-center">
+                <svg class="w-5 h-5 text-yellow-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path>
+                </svg>
+                Prestasi yang Pernah Diraih (Opsional)
+              </h4>
+              
+              <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                <p class="text-sm text-yellow-800">
+                  <strong>🏆 Catatan:</strong> Bagian ini opsional. Jika Anda memiliki prestasi akademik, 
+                  non-akademik, atau pencapaian lainnya, silakan tambahkan di sini. 
+                  Sertifikat dapat membantu memvalidasi prestasi Anda.
+                </p>
+              </div>
+
+              <table class="table-modern w-full">
+                <thead>
+                  <tr>
+                    <th width="30%">Nama Prestasi/Pencapaian</th>
+                    <th width="20%">Tingkat/Kategori</th>
+                    <th width="15%">Tahun</th>
+                    <th width="20%">Sertifikat</th>
+                    <th width="15%">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody id="prestasiTable">
+                  <tr>
+                    <td data-label="Nama Prestasi/Pencapaian">
+                      <input
+                        type="text"
+                        name="prestasi_nama[]"
+                        placeholder="Contoh: Juara 1 Lomba Pidato, Best Student, dll"
+                        class="input-field"
+                      />
+                    </td>
+                    <td data-label="Tingkat/Kategori">
+                      <select name="prestasi_tingkat[]" class="input-field">
+                        <option value="">Pilih Tingkat</option>
+                        <option value="Kelas">Tingkat Kelas</option>
+                        <option value="Sekolah">Tingkat Sekolah</option>
+                        <option value="Kecamatan">Tingkat Kecamatan</option>
+                        <option value="Kabupaten">Tingkat Kabupaten</option>
+                        <option value="Provinsi">Tingkat Provinsi</option>
+                        <option value="Nasional">Tingkat Nasional</option>
+                        <option value="Internasional">Tingkat Internasional</option>
+                        <option value="Lainnya">Lainnya</option>
+                      </select>
+                    </td>
+                    <td data-label="Tahun">
+                      <input
+                        type="number"
+                        name="prestasi_tahun[]"
+                        placeholder="2024"
+                        min="2020"
+                        max="2025"
+                        class="input-field"
+                        oninvalid="this.setCustomValidity('')" 
+                        oninput="setCustomValidity('')"
+                      />
+                    </td>
+                    <td data-label="Sertifikat">
+                      <div class="space-y-2">
+                        <input
+                          type="file"
+                          name="prestasi_sertifikat[]"
+                          accept=".pdf,.jpg,.jpeg,.png"
+                          class="input-field text-sm"
+                          title="Upload sertifikat prestasi (opsional)"
+                          onchange="previewFile(this)"
+                        />
+                        <p class="text-xs text-gray-500">PDF/JPG max 5MB</p>
+                        <div class="file-preview hidden">
+                          <div class="flex items-center space-x-2 text-xs text-green-600">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span class="file-name"></span>
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td data-label="Aksi" class="text-center">
+                      <button
+                        type="button"
+                        onclick="removeRow(this)"
+                        class="text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-red-100 transition-colors"
+                        title="Hapus prestasi ini"
+                      >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                        </svg>
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              <div class="flex flex-col sm:flex-row gap-2 mt-4">
+                <button
+                  type="button"
+                  onclick="addPrestasiRow()"
+                  class="px-5 py-2 btn-success inline-flex items-center justify-center space-x-2 rounded-lg flex-1 sm:flex-initial"
+                >
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                  </svg>
+                  <span>Tambah Prestasi</span>
+                </button>
+                <button
+                  type="button"
+                  onclick="clearPrestasi()"
+                  class="px-5 py-2 bg-gray-500 hover:bg-gray-600 text-white inline-flex items-center justify-center space-x-2 rounded-lg transition-colors"
+                >
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                  </svg>
+                  <span>Kosongkan Semua</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Page 2: Motivasi dan Peminatan -->
+          <div id="page2" class="page hidden">
+            <h3
+              class="text-2xl font-bold text-gray-800 mb-6 border-b-2 border-gray-200 pb-2 section-header"
+            >
+              HALAMAN 2: MOTIVASI DAN PEMINATAN DIVISI
+            </h3>
+
+            <!-- Motivasi -->
+            <div class="mb-8">
+              <h4
+                class="text-xl font-semibold text-gray-800 mb-4 bg-gray-100 p-3 rounded section-header"
+              >
+                Motivasi Menjadi Pengurus OSIS 2025/2026
+              </h4>
+              <textarea
+                name="motivasi"
+                required
+                rows="6"
+                class="w-full px-4 py-3 border border-gray-300 rounded-lg input-field"
+                placeholder="Tuliskan motivasi Anda bergabung menjadi pengurus OSIS. Jelaskan alasan, tujuan, dan kontribusi yang ingin Anda berikan..."
+              ></textarea>
+              <div class="mt-3 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                <div class="flex items-start space-x-3">
+                  <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-amber-600" fill="currentColor" viewBox="0 0 20 20">
+                      <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                    </svg>
+                  </div>
+                  <div class="flex-1">
+                    <h5 class="text-sm font-semibold text-amber-800">Penting - Himbauan Khusus</h5>
+                    <p class="text-sm text-amber-700 mt-1">
+                      <strong>Harap tidak menggunakan AI (ChatGPT, Gemini, dll.) untuk mengisi motivasi dan alasan pemilihan divisi.</strong> 
+                      Tulisan Anda akan menjadi tolak ukur intelektual dan originalitas pemikiran. Kami dapat mendeteksi tulisan yang dibuat oleh AI.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Divisi yang Diminati -->
+            <div class="mb-8">
+              <h4
+                class="text-xl font-semibold text-gray-800 mb-4 bg-gray-100 p-3 rounded section-header"
+              >
+                Divisi yang Diminati
+              </h4>
+              <p class="text-sm text-gray-600 mb-4">
+                Pilih maksimal 2 (dua) divisi yang paling Anda minati:
+              </p>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-6">
+                <div class="divisi-card" onclick="toggleDivisi(this, 'sekretaris')">
+                  <div class="flex items-start space-x-4">
+                    <div class="flex-shrink-0 mt-1">
+                      <input
+                        type="checkbox"
+                        name="divisi[]"
+                        value="sekretaris"
+                        class="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                      />
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <div class="mb-3">
+                        <h5 class="text-lg font-semibold text-gray-800 mb-1">Sekretaris</h5>
+                        <p class="text-sm text-gray-600">Mengelola administrasi dan surat-menyurat OSIS</p>
+                      </div>
+                      <textarea
+                        name="alasan_sekretaris"
+                        rows="3"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="Tuliskan alasan Anda memilih divisi ini..."
+                        disabled
+                        onclick="event.stopPropagation()"
+                      ></textarea>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="divisi-card" onclick="toggleDivisi(this, 'bendahara')">
+                  <div class="flex items-start space-x-4">
+                    <div class="flex-shrink-0 mt-1">
+                      <input
+                        type="checkbox"
+                        name="divisi[]"
+                        value="bendahara"
+                        class="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                      />
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <div class="mb-3">
+                        <h5 class="text-lg font-semibold text-gray-800 mb-1">Bendahara</h5>
+                        <p class="text-sm text-gray-600">Mengelola keuangan dan anggaran OSIS</p>
+                      </div>
+                      <textarea
+                        name="alasan_bendahara"
+                        rows="3"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="Tuliskan alasan Anda memilih divisi ini..."
+                        disabled
+                        onclick="event.stopPropagation()"
+                      ></textarea>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="divisi-card" onclick="toggleDivisi(this, 'keagamaan')">
+                  <div class="flex items-start space-x-4">
+                    <div class="flex-shrink-0 mt-1">
+                      <input
+                        type="checkbox"
+                        name="divisi[]"
+                        value="keagamaan"
+                        class="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                      />
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <div class="mb-3">
+                        <h5 class="text-lg font-semibold text-gray-800 mb-1">Divisi Keagamaan</h5>
+                        <p class="text-sm text-gray-600">Mengorganisir kegiatan keagamaan dan rohani</p>
+                      </div>
+                      <textarea
+                        name="alasan_keagamaan"
+                        rows="3"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="Tuliskan alasan Anda memilih divisi ini..."
+                        disabled
+                        onclick="event.stopPropagation()"
+                      ></textarea>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="divisi-card" onclick="toggleDivisi(this, 'media_jaringan')">
+                  <div class="flex items-start space-x-4">
+                    <div class="flex-shrink-0 mt-1">
+                      <input
+                        type="checkbox"
+                        name="divisi[]"
+                        value="media_jaringan"
+                        class="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                      />
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <div class="mb-3">
+                        <h5 class="text-lg font-semibold text-gray-800 mb-1">Divisi Media & Jaringan</h5>
+                        <p class="text-sm text-gray-600">Mengelola media sosial dan komunikasi publik</p>
+                      </div>
+                      <textarea
+                        name="alasan_media_jaringan"
+                        rows="3"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="Tuliskan alasan Anda memilih divisi ini..."
+                        disabled
+                        onclick="event.stopPropagation()"
+                      ></textarea>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="divisi-card" onclick="toggleDivisi(this, 'bakat_minat')">
+                  <div class="flex items-start space-x-4">
+                    <div class="flex-shrink-0 mt-1">
+                      <input
+                        type="checkbox"
+                        name="divisi[]"
+                        value="bakat_minat"
+                        class="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                      />
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <div class="mb-3">
+                        <h5 class="text-lg font-semibold text-gray-800 mb-1">Divisi Bakat & Minat</h5>
+                        <p class="text-sm text-gray-600">Mengembangkan dan memfasilitasi bakat siswa</p>
+                      </div>
+                      <textarea
+                        name="alasan_bakat_minat"
+                        rows="3"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="Tuliskan alasan Anda memilih divisi ini..."
+                        disabled
+                        onclick="event.stopPropagation()"
+                      ></textarea>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="divisi-card" onclick="toggleDivisi(this, 'jurnalistik')">
+                  <div class="flex items-start space-x-4">
+                    <div class="flex-shrink-0 mt-1">
+                      <input
+                        type="checkbox"
+                        name="divisi[]"
+                        value="jurnalistik"
+                        class="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                      />
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <div class="mb-3">
+                        <h5 class="text-lg font-semibold text-gray-800 mb-1">Divisi Jurnalistik</h5>
+                        <p class="text-sm text-gray-600">Menulis artikel dan dokumentasi kegiatan sekolah</p>
+                      </div>
+                      <textarea
+                        name="alasan_jurnalistik"
+                        rows="3"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="Tuliskan alasan Anda memilih divisi ini..."
+                        disabled
+                        onclick="event.stopPropagation()"
+                      ></textarea>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="divisi-card" onclick="toggleDivisi(this, 'kedisiplinan')">
+                  <div class="flex items-start space-x-4">
+                    <div class="flex-shrink-0 mt-1">
+                      <input
+                        type="checkbox"
+                        name="divisi[]"
+                        value="kedisiplinan"
+                        class="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                      />
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <div class="mb-3">
+                        <h5 class="text-lg font-semibold text-gray-800 mb-1">Divisi Kedisiplinan</h5>
+                        <p class="text-sm text-gray-600">Menegakkan tata tertib dan kedisiplinan sekolah</p>
+                      </div>
+                      <textarea
+                        name="alasan_kedisiplinan"
+                        rows="3"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="Tuliskan alasan Anda memilih divisi ini..."
+                        disabled
+                        onclick="event.stopPropagation()"
+                      ></textarea>
+                    </div>
+                  </div>
+                </div>
+                </div>
+              </div>
+
+              <div id="divisiError" class="bg-red-50 border border-red-200 rounded-lg p-4 mt-4 hidden">
+                <div class="flex">
+                  <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                    </svg>
+                  </div>
+                  <div class="ml-3">
+                    <p class="text-sm text-red-700">
+                      Silakan pilih minimal 1 dan maksimal 2 divisi yang diminati.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Navigation Buttons -->
+          <div class="flex justify-between mt-8 pt-6 border-t border-gray-200">
+            <button
+              type="button"
+              id="prevBtn"
+              onclick="previousPage()"
+              class="px-6 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors hidden"
+            >
+              ← Sebelumnya
+            </button>
+            <button
+              type="button"
+              id="nextBtn"
+              onclick="nextPage()"
+              class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors ml-auto"
+            >
+              Selanjutnya →
+            </button>
+            <button
+              type="submit"
+              id="submitBtn"
+              class="px-8 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors hidden"
+            >
+              Submit Pendaftaran
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Loading Modal -->
+    <div
+      id="loadingModal"
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50"
+    >
+      <div class="bg-white p-8 rounded-lg text-center">
+        <div
+          class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"
+        ></div>
+        <p class="text-gray-700">Mengirim pendaftaran...</p>
+      </div>
+    </div>
+
+    <!-- Success Modal -->
+    <div
+      id="successModal"
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50"
+    >
+      <div class="bg-white p-8 rounded-lg text-center max-w-md mx-4">
+        <div class="text-green-500 text-6xl mb-4">✓</div>
+        <h3 class="text-xl font-bold text-gray-800 mb-2">
+          Pendaftaran Berhasil!
+        </h3>
+        <p class="text-gray-600 mb-4">Nomor tiket Anda:</p>
+        <div
+          id="ticketNumber"
+          class="text-2xl font-bold text-blue-600 bg-blue-50 p-3 rounded mb-4"
+        ></div>
+        <p class="text-sm text-gray-500 mb-6">
+          Simpan nomor tiket ini untuk mengecek status pendaftaran
+        </p>
+        <button
+          onclick="redirectToCheck()"
+          class="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+        >
+          Cek Status
+        </button>
+      </div>
+    </div>
+
+    <script>
+      let currentPage = 1;
+      const totalPages = 2;
+      let selectedDivisiCount = 0;
+
+      // Photo preview
+      document
+        .getElementById("fotoInput")
+        .addEventListener("change", function (e) {
+          const file = e.target.files[0];
+          const preview = document.getElementById("photoPreview");
+
+          if (file) {
+            const reader = new FileReader();
+            reader.onload = function (e) {
+              preview.innerHTML = `<img src="${e.target.result}" alt="Preview">`;
+            };
+            reader.readAsDataURL(file);
+          } else {
+            preview.innerHTML =
+              '<span class="text-gray-400 text-center text-xs">Foto 3x4<br>akan muncul di sini</span>';
+          }
+        });
+
+      // Add table rows
+      function addOrganisasiRow() {
+        const tbody = document.getElementById("organisasiTable");
+        const row = document.createElement("tr");
+        row.innerHTML = `
+                <td data-label="Nama Organisasi/Kegiatan">
+                  <input type="text" name="organisasi_nama[]" placeholder="Contoh: OSIS, Pramuka, Panitia Acara, PMR" class="input-field">
+                </td>
+                <td data-label="Posisi/Peran">
+                  <input type="text" name="organisasi_jabatan[]" placeholder="Contoh: Anggota, Sekretaris, Koordinator" class="input-field">
+                </td>
+                <td data-label="Periode">
+                  <input type="text" name="organisasi_tahun[]" placeholder="2023-2024 atau 2024" class="input-field">
+                </td>
+                <td data-label="Sertifikat">
+                  <input type="file" name="organisasi_sertifikat[]" accept=".pdf,.jpg,.jpeg,.png" class="input-field text-sm" title="Upload sertifikat jika ada (opsional)">
+                  <p class="text-xs text-gray-500 mt-1">PDF/JPG (opsional)</p>
+                </td>
+                <td data-label="Aksi" class="text-center">
+                  <button type="button" onclick="removeRow(this)" class="text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-red-100 transition-colors" title="Hapus baris ini">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                    </svg>
+                  </button>
+                </td>
+            `;
+        tbody.appendChild(row);
+      }
+
+      function addPrestasiRow() {
+        const tbody = document.getElementById("prestasiTable");
+        const row = document.createElement("tr");
+        row.innerHTML = `
+                <td data-label="Nama Prestasi/Pencapaian">
+                  <input type="text" name="prestasi_nama[]" placeholder="Contoh: Juara 1 Lomba Pidato, Best Student, dll" class="input-field">
+                </td>
+                <td data-label="Tingkat/Kategori">
+                  <select name="prestasi_tingkat[]" class="input-field">
+                    <option value="">Pilih Tingkat</option>
+                    <option value="Kelas">Tingkat Kelas</option>
+                    <option value="Sekolah">Tingkat Sekolah</option>
+                    <option value="Kecamatan">Tingkat Kecamatan</option>
+                    <option value="Kabupaten">Tingkat Kabupaten</option>
+                    <option value="Provinsi">Tingkat Provinsi</option>
+                    <option value="Nasional">Tingkat Nasional</option>
+                    <option value="Internasional">Tingkat Internasional</option>
+                    <option value="Lainnya">Lainnya</option>
+                  </select>
+                </td>
+                <td data-label="Tahun">
+                  <input type="number" name="prestasi_tahun[]" placeholder="2024" min="2020" max="2025" class="input-field" oninvalid="this.setCustomValidity('')" oninput="setCustomValidity('')">
+                </td>
+                <td data-label="Sertifikat">
+                  <div class="space-y-2">
+                    <input type="file" name="prestasi_sertifikat[]" accept=".pdf,.jpg,.jpeg,.png" class="input-field text-sm" title="Upload sertifikat prestasi (opsional)" onchange="previewFile(this)">
+                    <p class="text-xs text-gray-500">PDF/JPG max 5MB</p>
+                    <div class="file-preview hidden">
+                      <div class="flex items-center space-x-2 text-xs text-green-600">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <span class="file-name"></span>
+                      </div>
+                    </div>
+                  </div>
+                </td>
+                <td data-label="Aksi" class="text-center">
+                  <button type="button" onclick="removeRow(this)" class="text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-red-100 transition-colors" title="Hapus prestasi ini">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                    </svg>
+                  </button>
+                </td>
+            `;
+        tbody.appendChild(row);
+      }
+
+      function removeRow(button) {
+        const row = button.closest("tr");
+        const tbody = row.parentElement;
+        if (tbody.children.length > 1) {
+          row.remove();
+        } else {
+          // Clear the only row instead of removing it
+          const inputs = row.querySelectorAll('input, select');
+          inputs.forEach(input => {
+            if (input.type === 'file') {
+              input.value = '';
+              const preview = input.closest('td').querySelector('.file-preview');
+              if (preview) preview.classList.add('hidden');
+            } else {
+              input.value = '';
+            }
+          });
+        }
+      }
+
+      // New functions for clearing all data
+      function clearOrganisasi() {
+        if (confirm('Yakin ingin menghapus semua data pengalaman organisasi?')) {
+          const tbody = document.getElementById("organisasiTable");
+          // Clear all but keep one empty row
+          while (tbody.children.length > 1) {
+            tbody.removeChild(tbody.lastChild);
+          }
+          // Clear the remaining row
+          const inputs = tbody.querySelector('tr').querySelectorAll('input, select');
+          inputs.forEach(input => input.value = '');
+        }
+      }
+
+      function clearPrestasi() {
+        if (confirm('Yakin ingin menghapus semua data prestasi?')) {
+          const tbody = document.getElementById("prestasiTable");
+          // Clear all but keep one empty row
+          while (tbody.children.length > 1) {
+            tbody.removeChild(tbody.lastChild);
+          }
+          // Clear the remaining row
+          const inputs = tbody.querySelector('tr').querySelectorAll('input, select');
+          inputs.forEach(input => {
+            if (input.type === 'file') {
+              input.value = '';
+              const preview = input.closest('td').querySelector('.file-preview');
+              if (preview) preview.classList.add('hidden');
+            } else {
+              input.value = '';
+            }
+          });
+        }
+      }
+
+      // File preview function
+      function previewFile(input) {
+        const file = input.files[0];
+        const preview = input.closest('td').querySelector('.file-preview');
+        const fileName = preview?.querySelector('.file-name');
+        
+        if (file) {
+          // Check file size (5MB limit)
+          if (file.size > 5 * 1024 * 1024) {
+            alert('Ukuran file terlalu besar. Maksimal 5MB.');
+            input.value = '';
+            return;
+          }
+          
+          if (preview && fileName) {
+            fileName.textContent = file.name;
+            preview.classList.remove('hidden');
+          }
+        } else {
+          if (preview) {
+            preview.classList.add('hidden');
+          }
+        }
+      }
+
+      // Divisi selection - improved interaction
+      function toggleDivisi(element, divisiName) {
+        const checkbox = element.querySelector('input[type="checkbox"]');
+        const textarea = element.querySelector("textarea");
+
+        // Check if we're clicking on the textarea - if so, don't toggle
+        if (event.target === textarea) {
+          return;
+        }
+
+        // If clicking on checkbox, let it handle itself naturally
+        if (event.target === checkbox) {
+          // Small delay to let checkbox change naturally
+          setTimeout(() => {
+            updateDivisiState(element, checkbox, textarea);
+          }, 10);
+          return;
+        }
+
+        // If clicking elsewhere on the card, toggle checkbox
+        if (!checkbox.checked && selectedDivisiCount >= 2) {
+          alert("Maksimal 2 divisi yang dapat dipilih!");
+          return;
+        }
+
+        checkbox.checked = !checkbox.checked;
+        updateDivisiState(element, checkbox, textarea);
+      }
+
+      function updateDivisiState(element, checkbox, textarea) {
+        if (checkbox.checked) {
+          if (selectedDivisiCount >= 2 && !element.classList.contains("selected")) {
+            checkbox.checked = false;
+            alert("Maksimal 2 divisi yang dapat dipilih!");
+            return;
+          }
+          
+          if (!element.classList.contains("selected")) {
+            selectedDivisiCount++;
+          }
+          
+          element.classList.add("selected");
+          textarea.disabled = false;
+          textarea.required = true;
+          textarea.focus();
+        } else {
+          element.classList.remove("selected");
+          textarea.disabled = true;
+          textarea.required = false;
+          textarea.value = "";
+          
+          if (element.classList.contains("selected") || selectedDivisiCount > 0) {
+            selectedDivisiCount--;
+          }
+        }
+
+        // Hide error if any
+        const errorElement = document.getElementById("divisiError");
+        if (errorElement) {
+          errorElement.classList.add("hidden");
+        }
+        
+        console.log("Selected divisi count:", selectedDivisiCount);
+      }
+
+      // Page navigation
+      function nextPage() {
+        console.log("nextPage called, currentPage:", currentPage);
+        
+        if (currentPage === 1) {
+          // Validate only core required fields in page 1 (exclude optional tables)
+          const requiredFieldSelectors = [
+            'input[name="nama_lengkap"]',
+            'input[name="nama_panggilan"]',
+            'select[name="kelas"]',
+            'select[name="jurusan"]',
+            'input[name="tempat_lahir"]',
+            'input[name="tanggal_lahir"]',
+            'textarea[name="alamat"]',
+            'select[name="agama"]',
+            'select[name="jenis_kelamin"]',
+            'input[name="nomor_telepon"]',
+            'input[name="foto"]'
+          ];
+          
+          let isValid = true;
+          let firstInvalidField = null;
+          let missingFields = [];
+
+          requiredFieldSelectors.forEach((selector) => {
+            const field = document.querySelector(selector);
+            if (field && field.hasAttribute('required')) {
+              if (!field.value || !field.value.trim()) {
+                field.classList.add("border-red-500");
+                missingFields.push(field.name || selector);
+                if (!firstInvalidField) {
+                  firstInvalidField = field;
+                }
+                isValid = false;
+              } else {
+                field.classList.remove("border-red-500");
+              }
+            }
+          });
+
+          console.log("Validation result:", { isValid, missingFields });
+
+          if (!isValid) {
+            alert("Mohon lengkapi semua field yang wajib diisi pada halaman ini: " + missingFields.join(", "));
+            // Focus to first invalid field
+            if (firstInvalidField) {
+              firstInvalidField.focus();
+            }
+            return;
+          }
+
+          console.log("All fields valid, showing page 2");
+          showPage(2);
+        }
+      }
+
+      function previousPage() {
+        if (currentPage === 2) {
+          showPage(1);
+        }
+      }
+
+      function showPage(pageNumber) {
+        console.log("showPage called with pageNumber:", pageNumber);
+        
+        // First, remove required from all fields to prevent validation errors
+        document.querySelectorAll("input[required], textarea[required], select[required]").forEach(field => {
+          field.setAttribute("data-was-required", "true");
+          field.removeAttribute("required");
+        });
+
+        // Hide all pages
+        document.querySelectorAll(".page").forEach((page) => {
+          page.classList.add("hidden");
+          page.classList.remove("active");
+        });
+
+        // Show selected page
+        const currentPageElement = document.getElementById(`page${pageNumber}`);
+        console.log("Current page element:", currentPageElement);
+        
+        if (currentPageElement) {
+          currentPageElement.classList.remove("hidden");
+          currentPageElement.classList.add("active");
+          console.log("Page", pageNumber, "is now visible");
+        }
+        
+        // Only add required attribute to visible page fields that should be required
+        if (pageNumber === 1) {
+          // Page 1: Core required fields only
+          const page1RequiredFields = [
+            'input[name="nama_lengkap"]',
+            'input[name="nama_panggilan"]',
+            'select[name="kelas"]',
+            'select[name="jurusan"]',
+            'input[name="tempat_lahir"]',
+            'input[name="tanggal_lahir"]',
+            'textarea[name="alamat"]',
+            'select[name="agama"]',
+            'select[name="jenis_kelamin"]',
+            'input[name="nomor_telepon"]',
+            'input[name="foto"]'
+          ];
+          
+          page1RequiredFields.forEach(selector => {
+            const field = document.querySelector(selector);
+            if (field) {
+              field.setAttribute("required", "");
+            }
+          });
+        } else if (pageNumber === 2) {
+          // Page 2: Motivasi is required
+          const motivasiField = document.querySelector('textarea[name="motivasi"]');
+          if (motivasiField) {
+            motivasiField.setAttribute("required", "");
+          }
+        }
+
+        // Update step indicator
+        const steps = document.querySelectorAll(".step-circle");
+        steps.forEach((step, index) => {
+          step.classList.remove("active", "completed");
+          if (index + 1 < pageNumber) {
+            step.classList.add("completed");
+          } else if (index + 1 === pageNumber) {
+            step.classList.add("active");
+          }
+        });
+
+        // Update buttons
+        document
+          .getElementById("prevBtn")
+          .classList.toggle("hidden", pageNumber === 1);
+        document
+          .getElementById("nextBtn")
+          .classList.toggle("hidden", pageNumber === totalPages);
+        document
+          .getElementById("submitBtn")
+          .classList.toggle("hidden", pageNumber !== totalPages);
+
+        currentPage = pageNumber;
+        console.log("currentPage updated to:", currentPage);
+      }
+
+      // Form submission
+      document
+        .getElementById("registrationForm")
+        .addEventListener("submit", async function (e) {
+          e.preventDefault();
+
+          // Validate only fields on the currently active page
+          let isValid = true;
+          const activePageFields = document.querySelectorAll(`#page${currentPage} input[required], #page${currentPage} textarea[required], #page${currentPage} select[required]`);
+          
+          activePageFields.forEach((field) => {
+            if (!field.value.trim()) {
+              field.classList.add("border-red-500");
+              isValid = false;
+              // No need to show page, as we are already on the active page
+            } else {
+              field.classList.remove("border-red-500");
+            }
+          });
+
+          // Validate divisi selection
+          if (selectedDivisiCount === 0) {
+            document.getElementById("divisiError").textContent =
+              "Silakan pilih minimal 1 divisi.";
+            document.getElementById("divisiError").classList.remove("hidden");
+            showPage(2);
+            isValid = false;
+          }
+
+          if (!isValid) {
+            alert("Mohon lengkapi semua field yang wajib diisi.");
+            return;
+          }
+
+          // Show loading
+          document.getElementById("loadingModal").classList.remove("hidden");
+
+          try {
+            const formData = new FormData(this);
+            
+            // Debug: log all form data
+            console.log("=== FORM SUBMISSION DEBUG ===");
+            for (let [key, value] of formData.entries()) {
+              console.log(`${key}: ${value}`);
+            }
+            console.log("Selected divisi count:", selectedDivisiCount);
+
+            const response = await fetch("/api/register", {
+              method: "POST",
+              body: formData,
+            });
+
+            console.log("Response status:", response.status);
+            const result = await response.json();
+            console.log("Response data:", result);
+
+            if (result.success) {
+              document.getElementById("loadingModal").classList.add("hidden");
+              document.getElementById("ticketNumber").textContent =
+                result.ticket;
+              document
+                .getElementById("successModal")
+                .classList.remove("hidden");
+            } else {
+              throw new Error(result.message || "Pendaftaran gagal");
+            }
+          } catch (error) {
+            document.getElementById("loadingModal").classList.add("hidden");
+            console.error("Submission error:", error);
+            alert("Error: " + error.message);
+          }
+        });
+
+      // Function to redirect to hasil.html with ticket
+      function redirectToCheck() {
+        window.location.href = `/hasil`;
+      }
+
+      // Initialize page 1 when document is ready
+      document.addEventListener('DOMContentLoaded', function() {
+        showPage(1);
+      });
+    </script>
+  </body>
+</html>
