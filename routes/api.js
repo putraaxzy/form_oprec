@@ -12,11 +12,11 @@ const router = express.Router();
 
 // Rate limiting
 const registerLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: 3, // limit each IP to 3 requests per windowMs
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Increased limit to 100 requests per 15 minutes per IP to allow for more concurrent registrations
   message: {
     success: false,
-    message: "Terlalu banyak percobaan pendaftaran. Coba lagi dalam 1 jam.",
+    message: "Terlalu banyak percobaan pendaftaran. Coba lagi dalam 15 menit.",
   },
 });
 

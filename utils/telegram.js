@@ -5,9 +5,6 @@ const path = require("path");
 const fs = require("fs"); // Re-add fs for other uses in the file
 const { setupEnhancedCommands } = require("./bot-commands");
 
-// Storage untuk data sementara yang belum di-push
-let pendingApprovals = new Map(); // ticket -> { user_data, approved_at }
-
 function initTelegramBot() {
   try {
     if (process.env.TELEGRAM_BOT_TOKEN) {
@@ -665,9 +662,13 @@ ${
         return;
       }
 
-      // Check if this is after first push (auto-push mode)
-      if (user.status === "approved" || user.status === "rejected") {
-        // Direct update to database (auto-push)
+      // If user is already approved or rejected, directly update (auto-push)
+      if (
+        user.status === "approved" ||
+        user.status === "rejected" ||
+        user.status === "LOLOS" ||
+        user.status === "DITOLAK"
+      ) {
         const result = await updateTicketStatusWithDivisi(
           ticket,
           "approved",
@@ -685,53 +686,50 @@ ${
 👤 <b>Disetujui:</b> ${msg.from.first_name}
 ⏰ <b>Waktu:</b> ${new Date().toLocaleString("id-ID")}
 
-⚡ <i>Langsung diproses ke database karena sudah pernah di-push!</i>
+⚡ <i>Langsung diproses ke database karena sudah pernah di-push atau sudah memiliki status final!</i>
 `;
         bot.sendMessage(chatId, autoApprovalMessage, { parse_mode: "HTML" });
         return;
       }
 
-      // Check if already in pending
-      if (pendingApprovals.has(ticket)) {
-        // Update divisi in pending
-        const pendingData = pendingApprovals.get(ticket);
+      // If user is already in PENDING_BOT_APPROVAL, update divisi
+      if (user.status === "PENDING_BOT_APPROVAL") {
         if (divisiTerpilih) {
-          pendingData.divisi_terpilih = divisiTerpilih;
-          pendingApprovals.set(ticket, pendingData);
+          await updateTicketStatusWithDivisi(
+            ticket,
+            "PENDING_BOT_APPROVAL",
+            divisiTerpilih
+          );
         }
-
         bot.sendMessage(
           chatId,
-          `⚠️ <b>UPDATE PENDING</b>\n\n🎫 Tiket: <code>${ticket}</code>\n👤 Nama: <b>${
+          `⚠️ <b>UPDATE PENDING (BOT)</b>\n\n🎫 Tiket: <code>${ticket}</code>\n👤 Nama: <b>${
             user.nama_lengkap
           }</b>\n🎯 Divisi: <b>${
-            divisiTerpilih || "Sesuai pilihan siswa"
+            divisiTerpilih || user.divisi || "Sesuai pilihan siswa"
           }</b>\n\n💡 Gunakan /push untuk memproses semua pending approval.`,
           { parse_mode: "HTML" }
         );
         return;
       }
 
-      // Add to pending approvals
-      pendingApprovals.set(ticket, {
-        user_data: user,
-        approved_at: new Date(),
-        approved_by: msg.from.first_name,
-        divisi_terpilih: divisiTerpilih,
-      });
+      // Otherwise, set status to PENDING_BOT_APPROVAL
+      await updateTicketStatusWithDivisi(
+        ticket,
+        "PENDING_BOT_APPROVAL",
+        divisiTerpilih
+      );
 
       const pendingMessage = `
-📝 <b>DITAMBAHKAN KE PENDING</b>
+📝 <b>DITAMBAHKAN KE PENDING (BOT)</b>
 
 🎫 <b>Tiket:</b> <code>${ticket}</code>
 👤 <b>Nama:</b> ${user.nama_lengkap}
 📱 <b>HP:</b> <code>${user.nomor_telepon}</code>
 🎯 <b>Divisi:</b> ${divisiTerpilih || user.divisi || "➖"}
-📋 <b>Status:</b> <b>📝 PENDING APPROVAL</b>
+📋 <b>Status:</b> <b>📝 PENDING (BOT)</b>
 👤 <b>Disetujui:</b> ${msg.from.first_name}
 ⏰ <b>Waktu:</b> ${new Date().toLocaleString("id-ID")}
-
-📊 <b>Total Pending:</b> ${pendingApprovals.size}
 
 💡 <i>Gunakan /push untuk memproses semua pending approval ke database!</i>
 `;
@@ -772,11 +770,6 @@ ${
           { parse_mode: "HTML" }
         );
         return;
-      }
-
-      // Remove from pending if exists
-      if (pendingApprovals.has(ticket)) {
-        pendingApprovals.delete(ticket);
       }
 
       // Always direct to database (auto-push for rejection)
@@ -834,11 +827,6 @@ ${
           { parse_mode: "HTML" }
         );
         return;
-      }
-
-      // Remove from pending if exists
-      if (pendingApprovals.has(ticket)) {
-        pendingApprovals.delete(ticket);
       }
 
       // Delete from database completely
@@ -1009,8 +997,31 @@ ${
   bot.onText(/\/push/, async (msg) => {
     const chatId = msg.chat.id;
 
+    if (!isAdminChat(chatId)) {
+      bot.sendMessage(
+        chatId,
+        "❌ <b>Akses Ditolak</b>\n\nPerintah ini hanya untuk admin di grup resmi.",
+        { parse_mode: "HTML" }
+      );
+      return;
+    }
+
     try {
-      if (pendingApprovals.size === 0) {
+      const pool = require("../database/mysql-database");
+      let connection;
+      let pendingUsers = [];
+
+      try {
+        connection = await pool.getConnection();
+        const [rows] = await connection.execute(
+          "SELECT u.ticket, u.nama_lengkap, GROUP_CONCAT(d.nama_divisi) as divisi_terpilih FROM users u LEFT JOIN divisi d ON u.id = d.user_id WHERE u.status = 'PENDING_BOT_APPROVAL' GROUP BY u.id"
+        );
+        pendingUsers = rows;
+      } finally {
+        if (connection) connection.release();
+      }
+
+      if (pendingUsers.length === 0) {
         bot.sendMessage(
           chatId,
           "📭 <b>TIDAK ADA DATA PENDING</b>\n\nBelum ada pendaftar yang disetujui dan menunggu untuk di-push ke database.\n\n💡 Gunakan /terima [tiket] terlebih dahulu.",
@@ -1024,28 +1035,25 @@ ${
       let failCount = 0;
       let results = [];
 
-      for (const [ticket, data] of pendingApprovals.entries()) {
+      for (const user of pendingUsers) {
         try {
           await updateTicketStatusWithDivisi(
-            ticket,
+            user.ticket,
             "approved",
-            data.divisi_terpilih
+            user.divisi_terpilih // Use the division already set or chosen
           );
           results.push(
-            `✅ ${ticket} - ${data.user_data.nama_lengkap}${
-              data.divisi_terpilih ? ` (${data.divisi_terpilih})` : ""
+            `✅ ${user.ticket} - ${user.nama_lengkap}${
+              user.divisi_terpilih ? ` (${user.divisi_terpilih})` : ""
             }`
           );
           successCount++;
         } catch (error) {
-          results.push(`❌ ${ticket} - GAGAL`);
+          results.push(`❌ ${user.ticket} - GAGAL`);
           failCount++;
-          console.error(`Failed to approve ${ticket}:`, error);
+          console.error(`Failed to approve ${user.ticket}:`, error);
         }
       }
-
-      // Clear pending approvals after processing
-      pendingApprovals.clear();
 
       let pushMessage = `📤 <b>PUSH DATA SELESAI</b>\n\n`;
       pushMessage += `✅ <b>Berhasil:</b> ${successCount}\n`;
@@ -1122,22 +1130,30 @@ function isAdminChat(chatId) {
 function getStatusIcon(status) {
   switch (status) {
     case "approved":
+    case "LOLOS":
       return "✅";
     case "rejected":
+    case "DITOLAK":
       return "❌";
+    case "PENDING_BOT_APPROVAL":
+      return "📝"; // Icon for pending bot approval
     default:
-      return "⏳";
+      return "⏳"; // Default for PENDING
   }
 }
 
 function formatStatus(status) {
   switch (status) {
     case "approved":
+    case "LOLOS":
       return "<b>DITERIMA</b>";
     case "rejected":
+    case "DITOLAK":
       return "<b>DITOLAK</b>";
+    case "PENDING_BOT_APPROVAL":
+      return "<b>PENDING (BOT)</b>"; // Formatted status for pending bot approval
     default:
-      return "<b>PENDING</b>";
+      return "<b>PENDING</b>"; // Default for PENDING
   }
 }
 
@@ -1200,9 +1216,9 @@ async function getTodayStats() {
       `
       SELECT 
         COUNT(*) as total,
-        SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved,
-        SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as rejected,
-        SUM(CASE WHEN status IS NULL OR status = 'pending' THEN 1 ELSE 0 END) as pending
+        SUM(CASE WHEN status = 'approved' OR status = 'LOLOS' THEN 1 ELSE 0 END) as approved,
+        SUM(CASE WHEN status = 'rejected' OR status = 'DITOLAK' THEN 1 ELSE 0 END) as rejected,
+        SUM(CASE WHEN status = 'PENDING' OR status = 'PENDING_BOT_APPROVAL' THEN 1 ELSE 0 END) as pending
       FROM users 
       WHERE DATE(created_at) = ?
     `,

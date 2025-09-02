@@ -31,7 +31,7 @@ async function initDatabase() {
         CREATE TABLE IF NOT EXISTS users (
           id INT PRIMARY KEY AUTO_INCREMENT,
           ticket VARCHAR(50) UNIQUE NOT NULL,
-          status ENUM('PENDING', 'LOLOS', 'DITOLAK', 'approved', 'rejected') DEFAULT 'PENDING',
+          status ENUM('PENDING', 'LOLOS', 'DITOLAK', 'approved', 'rejected', 'PENDING_BOT_APPROVAL') DEFAULT 'PENDING',
           nama_lengkap VARCHAR(255) NOT NULL,
           nama_panggilan VARCHAR(100),
           kelas VARCHAR(20),
