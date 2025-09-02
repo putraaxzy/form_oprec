@@ -1,18 +1,18 @@
-const mysql = require('mysql2/promise');
+const mysql = require("mysql2/promise");
 
 let pool = null;
 
 // Konfigurasi database
 const dbConfig = {
-  host: process.env.MYSQL_HOST || 'localhost',
+  host: process.env.MYSQL_HOST || "localhost",
   port: process.env.MYSQL_PORT || 3306,
-  user: process.env.MYSQL_USER || 'root',
-  password: process.env.MYSQL_PASSWORD || '',
-  database: process.env.MYSQL_DATABASE || 'osis_recruitment',
-  charset: 'utf8mb4',
+  user: process.env.MYSQL_USER || "root",
+  password: process.env.MYSQL_PASSWORD || "",
+  database: process.env.MYSQL_DATABASE || "osis_recruitment",
+  charset: "utf8mb4",
   waitForConnections: true,
   connectionLimit: 10,
-  queueLimit: 0
+  queueLimit: 0,
 };
 
 // Inisialisasi database
@@ -20,11 +20,11 @@ async function initDatabase() {
   try {
     // Buat connection pool
     pool = mysql.createPool(dbConfig);
-    console.log('✅ Connected to MySQL database');
+    console.log("✅ Connected to MySQL database");
 
     // Test connection dan buat tabel
     const connection = await pool.getConnection();
-    
+
     try {
       // Buat tabel users
       await connection.execute(`
@@ -54,7 +54,7 @@ async function initDatabase() {
           INDEX idx_status (status)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
       `);
-      console.log('✅ Users table created successfully');
+      console.log("✅ Users table created successfully");
 
       // Buat tabel organisasi
       await connection.execute(`
@@ -69,7 +69,7 @@ async function initDatabase() {
           INDEX idx_user_id (user_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
       `);
-      console.log('✅ Organisasi table created successfully');
+      console.log("✅ Organisasi table created successfully");
 
       // Buat tabel prestasi
       await connection.execute(`
@@ -84,7 +84,7 @@ async function initDatabase() {
           INDEX idx_user_id (user_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
       `);
-      console.log('✅ Prestasi table created successfully');
+      console.log("✅ Prestasi table created successfully");
 
       // Buat tabel divisi
       await connection.execute(`
@@ -98,15 +98,14 @@ async function initDatabase() {
           INDEX idx_divisi (nama_divisi)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
       `);
-      console.log('✅ Divisi table created successfully');
-
+      console.log("✅ Divisi table created successfully");
     } finally {
       connection.release();
     }
 
-    console.log('✅ Database initialized successfully');
+    console.log("✅ Database initialized successfully");
   } catch (error) {
-    console.error('❌ Database initialization error:', error);
+    console.error("❌ Database initialization error:", error);
     throw error;
   }
 }
@@ -114,7 +113,7 @@ async function initDatabase() {
 // Get connection from pool
 async function getConnection() {
   if (!pool) {
-    throw new Error('Database pool not initialized');
+    throw new Error("Database pool not initialized");
   }
   return await pool.getConnection();
 }
@@ -123,12 +122,13 @@ async function getConnection() {
 async function closeConnection() {
   if (pool) {
     await pool.end();
-    console.log('✅ MySQL connection pool closed');
+    console.log("✅ MySQL connection pool closed");
   }
 }
 
 module.exports = {
   initDatabase,
   getConnection,
-  closeConnection
+  closeConnection,
+  dbConfig, // Export dbConfig
 };

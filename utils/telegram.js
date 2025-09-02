@@ -12,20 +12,20 @@ function initTelegramBot() {
   try {
     if (process.env.TELEGRAM_BOT_TOKEN) {
       const TelegramBot = require("node-telegram-bot-api");
-      bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { 
+      bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, {
         polling: {
           interval: 1000,
           autoStart: true,
           params: {
-            timeout: 10
-          }
-        }
+            timeout: 10,
+          },
+        },
       });
       console.log("🤖 Telegram bot initialized with polling");
 
       // Add error handling for polling
-      bot.on('polling_error', (error) => {
-        console.error('❌ Telegram polling error:', error.message || error);
+      bot.on("polling_error", (error) => {
+        console.error("❌ Telegram polling error:", error.message || error);
         // Don't restart automatically, just log the error
       });
 
@@ -75,34 +75,104 @@ function sendTelegramNotification(data) {
 }
 
 function createRegistrationMessage(data) {
-  let message = `🎉 <b>PENDAFTAR BARU OSIS 2025/2026</b>\n\n`;
+  const statusIcon = getStatusIcon(data.status || "PENDING"); // Default to PENDING for new registrations
+  const year = new Date().getFullYear();
+  const nextYear = new Date().getFullYear() + 1;
 
-  // Personal Info Section - Simplified
-  message += `👤 <b>IDENTITAS</b>\n`;
-  message += `┣ 📝 Nama: <b>${data.nama_lengkap}</b>\n`;
-  message += `┣ 🏫 Kelas: ${data.kelas || "➖"} - ${data.jurusan || "➖"}\n`;
-  message += `┣ 📍 TTL: ${data.tempat_lahir || "➖"}, ${
-    data.tanggal_lahir || "➖"
+  let message = `🎉 <b>PENDAFTAR BARU OSIS ${year}/${nextYear}</b>\n\n`;
+
+  // IDENTITAS LENGKAP
+  message += `👤 <b>IDENTITAS LENGKAP</b>\n`;
+  message += `┣ 📝 Nama: ${data.nama_lengkap || "N/A"}\n`;
+  message += `┣ 🏷 Panggilan: ${data.nama_panggilan || "N/A"}\n`;
+  message += `┣ 🏫 Kelas: ${data.kelas || "N/A"} - ${data.jurusan || "N/A"}\n`;
+  const tanggalLahirFormatted = data.tanggal_lahir
+    ? new Date(data.tanggal_lahir).toLocaleDateString("id-ID", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      })
+    : "N/A";
+  message += `┣ 📍 TTL: ${
+    data.tempat_lahir || "N/A"
+  }, ${tanggalLahirFormatted}\n`;
+  message += `┣ ⚧ Gender: ${data.jenis_kelamin || "N/A"} | 🕌 ${
+    data.agama || "N/A"
   }\n`;
-  message += `┣ ⚧ ${data.jenis_kelamin || "➖"} | 🕌 ${data.agama || "➖"}\n`;
-  message += `┗ 📱 <code>${data.nomor_telepon}</code>\n\n`;
+  message += `┣ 📱 HP: ${
+    data.nomor_telepon ? `<code>${data.nomor_telepon}</code>` : "N/A"
+  }\n`;
+  message += `┣ 🏠 Alamat: ${data.alamat || "N/A"}\n`;
+  message += `┣ 🎨 Hobi: ${data.hobi || "N/A"}\n`;
+  message += `┗ 💭 Motto: ${data.motto || "N/A"}\n\n`;
 
-  // Experience Section - Simplified
-  if (data.organisasi_nama && data.organisasi_nama[0]) {
-    message += `🏛️ Organisasi: <b>${data.organisasi_nama[0]}</b>\n`;
-  }
-  if (data.prestasi_nama && data.prestasi_nama[0]) {
-    message += `🏆 Prestasi: <b>${data.prestasi_nama[0]}</b>\n`;
+  // PENGALAMAN ORGANISASI
+  if (
+    data.organisasi_nama &&
+    data.organisasi_nama.length > 0 &&
+    data.organisasi_nama[0].trim() !== ""
+  ) {
+    message += `🏛 <b>PENGALAMAN ORGANISASI</b>\n`;
+    data.organisasi_nama.forEach((orgName, index) => {
+      if (orgName && orgName.trim() !== "") {
+        message += `┣ ${index + 1}. ${orgName}\n`;
+        message += `┃   📋 ${data.organisasi_jabatan[index] || "N/A"} (${
+          data.organisasi_tahun[index] || "N/A"
+        })\n`;
+        message += `┃   📜 Sertifikat: ${
+          data.organisasi_sertifikat[index] ? "Ada" : "Tidak Ada"
+        }\n`;
+      }
+    });
+    message += `\n`;
   }
 
-  // Application Details
-  message += `🎯 Divisi: <b>${
-    Array.isArray(data.divisi) ? data.divisi.join(", ") : data.divisi
-  }</b>\n`;
-  message += `� Motivasi: ${formatMotivation(data.motivasi)}\n\n`;
+  // PRESTASI
+  if (
+    data.prestasi_nama &&
+    data.prestasi_nama.length > 0 &&
+    data.prestasi_nama[0].trim() !== ""
+  ) {
+    message += `🏆 <b>PRESTASI</b>\n`;
+    data.prestasi_nama.forEach((prestasiName, index) => {
+      if (prestasiName && prestasiName.trim() !== "") {
+        message += `┣ ${index + 1}. ${prestasiName}\n`;
+        message += `┃   🎖 ${data.prestasi_tingkat[index] || "N/A"} (${
+          data.prestasi_tahun[index] || "N/A"
+        })\n`;
+        message += `┃   📜 Sertifikat: ${
+          data.prestasi_sertifikat[index] ? "Ada" : "Tidak Ada"
+        }\n`;
+      }
+    });
+    message += `\n`;
+  }
+
+  // BIDANG PILIHAN & ALASAN
+  if (data.divisi && data.divisi.length > 0) {
+    message += `🎯 <b>BIDANG PILIHAN & ALASAN</b>\n`;
+    const divisiArray = Array.isArray(data.divisi)
+      ? data.divisi
+      : [data.divisi];
+    divisiArray.forEach((div, index) => {
+      const alasanField = `alasan_${div}`;
+      message += `${index + 1}. <b>${div.toUpperCase()}</b>\n`;
+      message += `   💬 ${data[alasanField] || "N/A"}\n\n`;
+    });
+  }
+
+  // MOTIVASI BERGABUNG
+  message += `💭 <b>MOTIVASI BERGABUNG</b>\n`;
+  message += `${data.motivasi || "N/A"}\n\n`;
+
+  // STATUS
+  message += `📊 <b>STATUS:</b> ${statusIcon} ${formatStatus(
+    data.status || "PENDING"
+  )}\n`;
+  message += `🎫 Tiket: <code>${data.ticket}</code>\n`;
+  message += `📅 Terdaftar: ${formatDate(data.created_at || new Date())}\n\n`;
 
   // Action Section
-  message += `🎫 <b>TIKET: <code>${data.ticket}</code></b>\n\n`;
   message += `⚡ <b>AKSI CEPAT</b>\n`;
   message += `┣ ✅ <code>/terima ${data.ticket}</code>\n`;
   message += `┣ ❌ <code>/tolak ${data.ticket}</code>\n`;
@@ -140,45 +210,107 @@ function collectMediaFiles(data) {
   }
 
   // Organization certificates
-  if (data.organisasi_sertifikat && Array.isArray(data.organisasi_sertifikat)) {
+  // Handle both direct filenames (from registration) and objects with sertifikat_path (from DB)
+  if (data.organisasi && Array.isArray(data.organisasi)) {
+    data.organisasi.forEach((org, index) => {
+      const filename = org.sertifikat_path; // Assuming 'org' is an object from DB
+      if (filename) {
+        const certPath = path.join(
+          __dirname,
+          "..",
+          "uploads",
+          "certificates",
+          filename
+        );
+        if (fs.existsSync(certPath)) {
+          mediaFiles.push({
+            type: "document",
+            path: certPath,
+            caption: `📜 <b>Sertifikat Organisasi ${index + 1}</b> - ${
+              org.nama_organisasi || "Organisasi"
+            }`,
+          });
+        }
+      }
+    });
+  } else if (
+    data.organisasi_sertifikat &&
+    Array.isArray(data.organisasi_sertifikat)
+  ) {
+    // Original logic for when data.organisasi_sertifikat is an array of filenames
     data.organisasi_sertifikat.forEach((filename, index) => {
-      const certPath = path.join(
-        __dirname,
-        "..",
-        "uploads",
-        "certificates",
-        filename
-      );
-      if (fs.existsSync(certPath)) {
-        mediaFiles.push({
-          type: "document",
-          path: certPath,
-          caption: `📜 <b>Sertifikat Organisasi ${index + 1}</b> - ${
-            data.organisasi_nama || "Organisasi"
-          }`,
-        });
+      if (filename) {
+        const certPath = path.join(
+          __dirname,
+          "..",
+          "uploads",
+          "certificates",
+          filename
+        );
+        if (fs.existsSync(certPath)) {
+          mediaFiles.push({
+            type: "document",
+            path: certPath,
+            caption: `📜 <b>Sertifikat Organisasi ${index + 1}</b> - ${
+              data.organisasi_nama && data.organisasi_nama[index]
+                ? data.organisasi_nama[index]
+                : "Organisasi"
+            }`,
+          });
+        }
       }
     });
   }
 
   // Achievement certificates
-  if (data.prestasi_sertifikat && Array.isArray(data.prestasi_sertifikat)) {
+  // Handle both direct filenames (from registration) and objects with sertifikat_path (from DB)
+  if (data.prestasi && Array.isArray(data.prestasi)) {
+    data.prestasi.forEach((p, index) => {
+      const filename = p.sertifikat_path; // Assuming 'p' is an object from DB
+      if (filename) {
+        const certPath = path.join(
+          __dirname,
+          "..",
+          "uploads",
+          "certificates",
+          filename
+        );
+        if (fs.existsSync(certPath)) {
+          mediaFiles.push({
+            type: "document",
+            path: certPath,
+            caption: `🏆 <b>Sertifikat Prestasi ${index + 1}</b> - ${
+              p.nama_prestasi || "Prestasi"
+            }`,
+          });
+        }
+      }
+    });
+  } else if (
+    data.prestasi_sertifikat &&
+    Array.isArray(data.prestasi_sertifikat)
+  ) {
+    // Original logic for when data.prestasi_sertifikat is an array of filenames
     data.prestasi_sertifikat.forEach((filename, index) => {
-      const certPath = path.join(
-        __dirname,
-        "..",
-        "uploads",
-        "certificates",
-        filename
-      );
-      if (fs.existsSync(certPath)) {
-        mediaFiles.push({
-          type: "document",
-          path: certPath,
-          caption: `🏆 <b>Sertifikat Prestasi ${index + 1}</b> - ${
-            data.prestasi_nama || "Prestasi"
-          }`,
-        });
+      if (filename) {
+        const certPath = path.join(
+          __dirname,
+          "..",
+          "uploads",
+          "certificates",
+          filename
+        );
+        if (fs.existsSync(certPath)) {
+          mediaFiles.push({
+            type: "document",
+            path: certPath,
+            caption: `🏆 <b>Sertifikat Prestasi ${index + 1}</b> - ${
+              data.prestasi_nama && data.prestasi_nama[index]
+                ? data.prestasi_nama[index]
+                : "Prestasi"
+            }`,
+          });
+        }
       }
     });
   }
@@ -192,93 +324,86 @@ async function sendMedia(message, mediaFiles, data) {
   const documents = mediaFiles.filter((file) => file.type === "document");
 
   try {
-    let mainMessageSent = false;
+    let mainCaption = message;
+    const captionLimit = 1024; // Telegram caption limit
 
-    // 1. Send photos as a media group if they exist
+    // Check if the main message is too long for a caption
+    if (mainCaption.length > captionLimit) {
+      // Send the full message as a separate text message
+      await sendTextOnly(mainCaption);
+      // Use a shorter, generic caption for the media if needed later
+      mainCaption = `🎉 <b>PENDAFTAR BARU OSIS</b>\n\n📷 Foto & 📜 Sertifikat dari ${data.nama_lengkap}`;
+    } else {
+      // If message is short enough, it will be used as the caption for the first media item
+      await new Promise((resolve) => setTimeout(resolve, 100)); // Small delay before sending media
+    }
+
+    // Send photos
     if (photos.length > 0) {
-      const photoGroup = photos.map((photo, index) => {
-        const mediaItem = {
+      if (photos.length === 1) {
+        // Send single photo
+        await bot.sendPhoto(process.env.TELEGRAM_CHAT_ID, photos[0].path, {
+          caption: mainCaption, // Use mainCaption for the single photo
+          parse_mode: "HTML",
+        });
+      } else {
+        // Send multiple photos as a media group
+        const photoGroup = photos.map((photo, index) => ({
           type: "photo",
-          media: photo.path,
-        };
-        // Attach the main message to the first photo's caption
-        if (index === 0) {
-          mediaItem.caption = `${message}\n\n━━━━━━━━━━━━━━━━━━━━\n${photo.caption}`;
-          mediaItem.parse_mode = "HTML";
-        } else {
-          mediaItem.caption = `${photo.caption}\n🎫 Tiket: <code>${data.ticket}</code>`;
-          mediaItem.parse_mode = "HTML";
-        }
-        return mediaItem;
-      });
-
-      console.log(
-        `📨 Sending photo media group with ${photoGroup.length} items...`
-      );
-      await bot.sendMediaGroup(process.env.TELEGRAM_CHAT_ID, photoGroup);
-      mainMessageSent = true;
-      console.log("✅ Photo media group sent successfully");
+          media: { source: photo.path },
+          caption:
+            index === 0
+              ? mainCaption
+              : `📷 Foto ${index + 1} - ${data.nama_lengkap}`,
+          parse_mode: "HTML",
+        }));
+        await bot.sendMediaGroup(process.env.TELEGRAM_CHAT_ID, photoGroup);
+      }
+      console.log("✅ Photos sent successfully");
+      await new Promise((resolve) => setTimeout(resolve, 200)); // Delay after sending photos
+    } else if (mainCaption.length <= captionLimit) {
+      // If no photos, but message was short enough, send it now if not already sent with photos
+      await sendTextOnly(mainCaption);
     }
 
-    // 2. If no photos were sent, send the main text message first
-    if (!mainMessageSent) {
-      await sendTextOnly(message);
-    }
-
-    // 3. Send documents individually
+    // Send documents individually
     if (documents.length > 0) {
       console.log(`📨 Sending ${documents.length} documents individually...`);
       for (const doc of documents) {
-        await bot.sendDocument(process.env.TELEGRAM_CHAT_ID, doc.path, {
-          caption: `${doc.caption}\n🎫 Tiket: <code>${data.ticket}</code>`,
-          parse_mode: "HTML",
-        });
-        // Small delay to avoid rate limiting
-        await new Promise((resolve) => setTimeout(resolve, 200));
+        try {
+          await bot.sendDocument(process.env.TELEGRAM_CHAT_ID, doc.path, {
+            caption: doc.caption, // Documents always use their specific captions
+            parse_mode: "HTML",
+          });
+        } catch (docError) {
+          console.error(`❌ Error sending document ${doc.path}:`, docError);
+          // Try sending without caption as fallback
+          try {
+            await bot.sendDocument(process.env.TELEGRAM_CHAT_ID, doc.path);
+          } catch (fallbackError) {
+            console.error(`❌ Failed to send document:`, fallbackError);
+          }
+        }
+        await new Promise((resolve) => setTimeout(resolve, 200)); // Small delay to avoid rate limiting
       }
       console.log("✅ Documents sent successfully");
     }
-  } catch (error) {
-    console.error("❌ Error sending media:", error);
-    // Fallback to sending everything individually if any part fails
-    console.log("🔄 Falling back to full individual file sending...");
-    await sendMediaIndividually(message, mediaFiles, data);
-  }
-}
 
-async function sendMediaIndividually(message, mediaFiles, data) {
-  try {
-    let mainMessageSent = false;
-
-    for (const file of mediaFiles) {
-      if (file.type === "photo") {
-        const caption = mainMessageSent
-          ? `${file.caption}\n🎫 Tiket: <code>${data.ticket}</code>`
-          : `${message}\n\n━━━━━━━━━━━━━━━━━━━━\n${file.caption}`;
-
-        await bot.sendPhoto(process.env.TELEGRAM_CHAT_ID, file.path, {
-          caption: caption,
-          parse_mode: "HTML",
-        });
-        mainMessageSent = true;
-      } else if (file.type === "document") {
-        await bot.sendDocument(process.env.TELEGRAM_CHAT_ID, file.path, {
-          caption: `${file.caption}\n🎫 Tiket: <code>${data.ticket}</code>`,
-          parse_mode: "HTML",
-        });
-      }
-
-      // Small delay between sends to avoid rate limiting
-      await new Promise((resolve) => setTimeout(resolve, 200));
-    }
-
-    // If no main message was sent (no photo), send text message
-    if (!mainMessageSent) {
+    if (
+      photos.length === 0 &&
+      documents.length === 0 &&
+      mainCaption.length > captionLimit
+    ) {
+      // If no media at all, and the message was long, it was already sent.
+      // If no media at all, and the message was short, it was sent above.
+      // This condition handles the case where there was no media, and the message was short,
+      // but it wasn't sent because photos.length was 0 and the else if condition was not met.
+      // This ensures the message is always sent.
       await sendTextOnly(message);
     }
   } catch (error) {
-    console.error("❌ Error sending individual media:", error);
-    // Final fallback: just send text
+    console.error("❌ Error sending media (general catch):", error);
+    // Fallback: just send the full text message if anything goes wrong
     await sendTextOnly(message);
   }
 }
@@ -306,9 +431,7 @@ function setupBotCommands() {
     const welcomeMessage = `
 🎭 <b>BOT OSIS RECRUITMENT 2025/2026</b>
 
-👋 Halo ${
-      msg.from.first_name
-    }! Selamat datang di sistem rekrutmen OSIS otomatis.
+👋 Halo ${msg.from.first_name}! Selamat datang di sistem rekrutmen OSIS otomatis.
 
 <b>🔧 PERINTAH UMUM:</b>
 ┣ 📋 /help - Panduan lengkap
@@ -319,10 +442,11 @@ function setupBotCommands() {
 ┗ 📄 /detail [tiket] - Info lengkap & foto
 
 <b>⚙️ PERINTAH ADMIN:</b>
+┣ 📋 /daftar - Lihat semua pendaftar
 ┣ ✅ /terima [tiket] [divisi] - Setujui (pending)
 ┣ ❌ /tolak [tiket] [alasan] - Tolak pendaftar
-┣ 🗑️ /hapus [tiket] - Hapus permanen
-┣ 📤 /push - Push semua pending ke DB
+┣ �️ /hapus [tiket] - Hapus permanen
+┣ � /push - Push semua pending ke DB
 ┣ 📊 /excel - Export data Excel
 ┣ 📈 /stats - Statistik rekrutmen
 ┣ 📋 /divisi - Stats per divisi
@@ -942,6 +1066,51 @@ ${
     }
   });
 
+  // New /daftar command
+  bot.onText(/\/daftar/, async (msg) => {
+    const chatId = msg.chat.id;
+
+    if (!isAdminChat(chatId)) {
+      bot.sendMessage(
+        chatId,
+        "❌ <b>Akses Ditolak</b>\n\nPerintah ini hanya untuk admin di grup resmi.",
+        { parse_mode: "HTML" }
+      );
+      return;
+    }
+
+    try {
+      const applicants = await getAllApplicants(); // Fetch all applicants
+
+      if (applicants.length === 0) {
+        bot.sendMessage(
+          chatId,
+          "📋 <b>DAFTAR PENDAFTAR</b>\n\nBelum ada pendaftar dalam sistem.",
+          { parse_mode: "HTML" }
+        );
+        return;
+      }
+
+      let message = `📋 <b>DAFTAR SEMUA PENDAFTAR</b>\n\n`;
+      applicants.forEach((user, index) => {
+        const statusIcon = getStatusIcon(user.status);
+        message += `${index + 1}. ${statusIcon} <code>${user.ticket}</code>\n`;
+        message += `   📝 <b>${user.nama_lengkap}</b>\n`;
+        message += `   🎓 ${user.kelas} ${user.jurusan}\n`;
+        message += `   🎯 ${user.divisi || "Belum memilih"}\n\n`;
+      });
+
+      message += `💡 Gunakan /detail [tiket] untuk info lengkap`;
+
+      bot.sendMessage(chatId, message, { parse_mode: "HTML" });
+    } catch (error) {
+      console.error("❌ Error getting all applicants:", error);
+      bot.sendMessage(chatId, "⚠️ Gagal mengambil daftar pendaftar.", {
+        parse_mode: "HTML",
+      });
+    }
+  });
+
   console.log("✅ Bot commands setup completed");
 }
 
@@ -1174,7 +1343,7 @@ async function getUserDetailWithFiles(ticket) {
       ...user,
       organisasi: orgRows,
       prestasi: prestasiRows,
-      divisi: divisiRows.map((d) => d.nama_divisi).join(", ") || null,
+      divisi: divisiRows,
     };
   } catch (err) {
     throw err;
@@ -1184,79 +1353,199 @@ async function getUserDetailWithFiles(ticket) {
 }
 
 // Create detailed message for /detail command
+function createShortRegistrationSummary(data) {
+  const year = new Date().getFullYear();
+  const nextYear = new Date().getFullYear() + 1;
+
+  // Keep it very short to avoid caption limits
+  let summary = `🎉 <b>PENDAFTAR BARU OSIS ${year}/${nextYear}</b>\n\n`;
+  summary += `👤 ${data.nama_lengkap || "N/A"}\n`;
+  summary += `🏫 ${data.kelas || "N/A"} - ${data.jurusan || "N/A"}\n`;
+  summary += ` <code>${data.ticket}</code>`;
+
+  return summary;
+}
+
 function createDetailMessage(user) {
   const statusIcon = getStatusIcon(user.status);
+  const year = new Date().getFullYear();
+  const nextYear = new Date().getFullYear() + 1;
 
-  let message = `👤 <b>DETAIL LENGKAP PENDAFTAR</b>\n\n`;
-  message += `🎫 <b>Tiket:</b> <code>${user.ticket}</code>\n`;
-  message += `${statusIcon} <b>Status:</b> ${formatStatus(user.status)}\n\n`;
+  let message = `📋 <b>DETAIL PENDAFTAR OSIS ${year}/${nextYear}</b>\n\n`;
 
-  message += `<b>📋 DATA PERSONAL:</b>\n`;
-  message += `┣ 📝 <b>Nama:</b> ${user.nama_lengkap}\n`;
-  message += `┣ 📱 <b>HP:</b> <code>${user.nomor_telepon}</code>\n`;
-  message += `┣ 🎓 <b>Kelas:</b> ${user.kelas}\n`;
-  message += `┣ 📚 <b>Jurusan:</b> ${user.jurusan}\n`;
-  message += `┣ 📍 <b>Alamat:</b> ${user.alamat}\n`;
-  message += `┣ 📧 <b>Email:</b> ${user.email || "➖"}\n`;
-  message += `┗ 🎯 <b>Divisi:</b> ${user.divisi || "➖"}\n\n`;
+  // IDENTITAS LENGKAP
+  message += `👤 <b>IDENTITAS LENGKAP</b>\n`;
+  message += `┣ 📝 Nama: ${user.nama_lengkap || "N/A"}\n`;
+  message += `┣ � Panggilan: ${user.nama_panggilan || "N/A"}\n`;
+  message += `┣ � Kelas: ${user.kelas || "N/A"} - ${user.jurusan || "N/A"}\n`;
+  const tanggalLahirFormatted = user.tanggal_lahir
+    ? new Date(user.tanggal_lahir).toLocaleDateString("id-ID", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      })
+    : "N/A";
+  message += `┣ 📍 TTL: ${
+    user.tempat_lahir || "N/A"
+  }, ${tanggalLahirFormatted}\n`;
+  message += `┣ ⚧ Gender: ${user.jenis_kelamin || "N/A"} | 🕌 ${
+    user.agama || "N/A"
+  }\n`;
+  message += `┣ 📱 HP: ${
+    user.nomor_telepon ? `<code>${user.nomor_telepon}</code>` : "N/A"
+  }\n`;
+  message += `┣ 🏠 Alamat: ${user.alamat || "N/A"}\n`;
+  message += `┣ 🎨 Hobi: ${user.hobi || "N/A"}\n`;
+  message += `┗ 💭 Motto: ${user.motto || "N/A"}\n\n`;
 
+  // PENGALAMAN ORGANISASI
   if (user.organisasi && user.organisasi.length > 0) {
-    message += `<b>🏛️ PENGALAMAN ORGANISASI:</b>\n`;
+    message += `🏛 <b>PENGALAMAN ORGANISASI</b>\n`;
     user.organisasi.forEach((org, index) => {
-      message += `${index + 1}. <b>${org.nama_organisasi}</b>\n`;
-      message += `   └ ${org.jabatan} (${org.periode})\n`;
+      if (org.nama_organisasi && org.nama_organisasi.trim() !== "") {
+        message += `┣ ${index + 1}. ${org.nama_organisasi}\n`;
+        message += `┃   📋 ${org.jabatan || "N/A"} (${org.tahun || "N/A"})\n`;
+        message += `┃   📜 Sertifikat: ${
+          org.sertifikat_path ? "Ada" : "Tidak Ada"
+        }\n`;
+      }
     });
     message += `\n`;
   }
 
+  // PRESTASI
   if (user.prestasi && user.prestasi.length > 0) {
-    message += `<b>🏆 PRESTASI:</b>\n`;
-    user.prestasi.forEach((prestasi, index) => {
-      message += `${index + 1}. <b>${prestasi.nama_prestasi}</b>\n`;
-      message += `   └ ${prestasi.tingkat} - ${prestasi.tahun}\n`;
+    message += `🏆 <b>PRESTASI</b>\n`;
+    user.prestasi.forEach((p, index) => {
+      if (p.nama_prestasi && p.nama_prestasi.trim() !== "") {
+        message += `┣ ${index + 1}. ${p.nama_prestasi}\n`;
+        message += `┃   🎖 ${p.tingkat || "N/A"} (${p.tahun || "N/A"})\n`;
+        message += `┃   📜 Sertifikat: ${
+          p.sertifikat_path ? "Ada" : "Tidak Ada"
+        }\n`;
+      }
     });
     message += `\n`;
   }
 
-  message += `<b>💭 MOTIVASI:</b>\n`;
-  message += `<i>"${user.motivasi || "Tidak ada motivasi"}"</i>\n\n`;
+  // BIDANG PILIHAN & ALASAN
+  if (user.divisi && user.divisi.length > 0) {
+    message += `🎯 <b>BIDANG PILIHAN & ALASAN</b>\n`;
+    user.divisi.forEach((div, index) => {
+      message += `${index + 1}. <b>${div.nama_divisi.toUpperCase()}</b>\n`;
+      message += `   💬 ${div.alasan || "N/A"}\n\n`;
+    });
+  }
 
-  message += `<b>📅 WAKTU:</b>\n`;
-  message += `┣ 📝 Daftar: ${formatDate(user.created_at)}\n`;
-  message += `┗ 🔄 Update: ${formatDate(user.updated_at)}`;
+  // MOTIVASI BERGABUNG
+  message += `💭 <b>MOTIVASI BERGABUNG</b>\n`;
+  message += `${user.motivasi || "N/A"}\n\n`;
+
+  // STATUS
+  message += `📊 <b>STATUS:</b> ${statusIcon} ${formatStatus(user.status)}\n`;
+  message += `🎫 Tiket: <code>${user.ticket}</code>\n`;
+  message += `📅 Terdaftar: ${formatDate(user.created_at)}\n`;
 
   return message;
 }
 
 // Enhanced sendMedia function for specific chat
 async function sendMediaToChat(message, mediaFiles, user, chatId) {
-  const mediaGroup = [];
+  const photos = mediaFiles.filter((file) => file.type === "photo");
+  const documents = mediaFiles.filter((file) => file.type === "document");
 
-  for (let i = 0; i < Math.min(mediaFiles.length, 10); i++) {
-    const file = mediaFiles[i];
-    const mediaType = file.type === "image" ? "photo" : "document";
+  try {
+    let mainCaption = message;
+    const captionLimit = 1024; // Telegram caption limit
 
-    mediaGroup.push({
-      type: mediaType,
-      media: file.path,
-      caption: i === 0 ? message : undefined,
-      parse_mode: i === 0 ? "HTML" : undefined,
-    });
-  }
-
-  if (mediaGroup.length > 0) {
-    try {
-      await bot.sendMediaGroup(
-        chatId || process.env.TELEGRAM_CHAT_ID,
-        mediaGroup
-      );
-    } catch (error) {
-      console.error("❌ Error sending media group:", error);
-      // Fallback to text message
-      await bot.sendMessage(chatId || process.env.TELEGRAM_CHAT_ID, message, {
-        parse_mode: "HTML",
-      });
+    // Check if the main message is too long for a caption
+    if (mainCaption.length > captionLimit) {
+      // Send the full message as a separate text message
+      await bot.sendMessage(chatId, mainCaption, { parse_mode: "HTML" });
+      // Use a shorter, generic caption for the media if needed later
+      mainCaption = `📋 <b>DETAIL PENDAFTAR</b>\n\n📷 Foto & 📜 Sertifikat dari ${user.nama_lengkap}`;
+    } else {
+      await new Promise((resolve) => setTimeout(resolve, 100)); // Small delay before sending media
     }
+
+    // Send photos
+    if (photos.length > 0) {
+      if (photos.length === 1) {
+        // Send single photo
+        await bot.sendPhoto(chatId, photos[0].path, {
+          caption: mainCaption, // Use mainCaption for the single photo
+          parse_mode: "HTML",
+        });
+      } else {
+        // Send multiple photos as a media group
+        const photoGroup = photos.map((photo, index) => ({
+          type: "photo",
+          media: { source: photo.path },
+          caption:
+            index === 0
+              ? mainCaption
+              : `📷 Foto ${index + 1} - ${user.nama_lengkap}`,
+          parse_mode: "HTML",
+        }));
+        await bot.sendMediaGroup(chatId, photoGroup);
+      }
+      console.log("✅ Photos sent successfully to chat:", chatId);
+      await new Promise((resolve) => setTimeout(resolve, 200)); // Delay after sending photos
+    } else if (mainCaption.length <= captionLimit) {
+      // If no photos, but message was short enough, send it now if not already sent with photos
+      await bot.sendMessage(chatId, mainCaption, { parse_mode: "HTML" });
+    }
+
+    // Send documents individually
+    if (documents.length > 0) {
+      console.log(
+        `📨 Sending ${documents.length} documents individually to chat:`,
+        chatId
+      );
+      for (const doc of documents) {
+        try {
+          await bot.sendDocument(chatId, doc.path, {
+            caption: doc.caption, // Documents always use their specific captions
+            parse_mode: "HTML",
+          });
+        } catch (docError) {
+          console.error(
+            `❌ Error sending document ${doc.path} to chat ${chatId}:`,
+            docError
+          );
+          // Try sending without caption as fallback
+          try {
+            await bot.sendDocument(chatId, doc.path);
+          } catch (fallbackError) {
+            console.error(
+              `❌ Failed to send document to chat ${chatId}:`,
+              fallbackError
+            );
+          }
+        }
+        await new Promise((resolve) => setTimeout(resolve, 200)); // Small delay to avoid rate limiting
+      }
+      console.log("✅ Documents sent successfully to chat:", chatId);
+    }
+
+    if (
+      photos.length === 0 &&
+      documents.length === 0 &&
+      mainCaption.length > captionLimit
+    ) {
+      // This condition ensures the message is always sent if no media was present
+      // and the message was long (already sent) or short (sent above if no photos).
+      // This is a final check to ensure the message is sent if no media was processed.
+      await bot.sendMessage(chatId, message, { parse_mode: "HTML" });
+    }
+  } catch (error) {
+    console.error(
+      "❌ Error sending media to chat (general catch):",
+      chatId,
+      error
+    );
+    // Fallback: just send the full text message if anything goes wrong
+    await bot.sendMessage(chatId, message, { parse_mode: "HTML" });
   }
 }
 
@@ -1354,6 +1643,29 @@ async function deleteApplicant(ticket) {
     );
 
     return { success: result.affectedRows > 0 };
+  } catch (err) {
+    throw err;
+  } finally {
+    if (connection) connection.release();
+  }
+}
+
+async function getAllApplicants(limit = 20, offset = 0) {
+  const pool = require("../database/mysql-database");
+  let connection;
+
+  try {
+    connection = await pool.getConnection();
+    const query = `
+      SELECT u.*, GROUP_CONCAT(d.nama_divisi) as divisi
+      FROM users u
+      LEFT JOIN divisi d ON u.id = d.user_id
+      GROUP BY u.id
+      ORDER BY u.created_at DESC
+      LIMIT ${Number(limit)} OFFSET ${Number(offset)}
+    `;
+    const [rows] = await connection.execute(query);
+    return rows || [];
   } catch (err) {
     throw err;
   } finally {

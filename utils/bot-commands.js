@@ -14,6 +14,7 @@ const {
 } = require("./bot-stats");
 const fs = require("fs");
 const path = require("path");
+const { createDatabaseBackup } = require("./db-backup"); // Import the new backup utility
 
 // Helper function to check admin access - matches the one in telegram.js
 function isAdminChat(chatId) {
@@ -256,6 +257,81 @@ function setupEnhancedCommands(bot) {
         `❌ <b>Error</b>\n\nGagal mengambil tren pendaftaran:\n<code>${error.message}</code>`,
         { parse_mode: "HTML" }
       );
+    }
+  });
+
+  // New /backupdb command - Backup database and send via chat
+  bot.onText(/\/backupdb/, async (msg) => {
+    const chatId = msg.chat.id;
+    const userId = msg.from.id;
+
+    console.log(`🗄️ Database backup requested by user ${userId}`);
+
+    if (!isAdminChat(chatId)) {
+      bot.sendMessage(
+        chatId,
+        "❌ <b>Akses Ditolak</b>\n\nPerintah ini hanya untuk admin di grup resmi.",
+        { parse_mode: "HTML" }
+      );
+      return;
+    }
+
+    const loadingMsg = await bot.sendMessage(
+      chatId,
+      "⏳ <b>Membuat Backup Database...</b>\n\nIni mungkin memakan waktu beberapa saat.",
+      { parse_mode: "HTML" }
+    );
+
+    let backupFilePath = null;
+    try {
+      backupFilePath = await createDatabaseBackup();
+      const stats = fs.statSync(backupFilePath);
+      const fileSizeInBytes = stats.size;
+      const fileSizeInMB = (fileSizeInBytes / (1024 * 1024)).toFixed(2);
+      const fileName = path.basename(backupFilePath);
+
+      await bot.editMessageText(
+        "📤 <b>Mengirim File Backup...</b>\n\n✅ Backup berhasil dibuat!",
+        {
+          chat_id: chatId,
+          message_id: loadingMsg.message_id,
+          parse_mode: "HTML",
+        }
+      );
+
+      const caption = `🗄️ <b>BACKUP DATABASE</b>
+
+📁 <b>File:</b> ${fileName}
+📏 <b>Ukuran File:</b> ${fileSizeInMB} MB
+
+📝 <i>Backup database sistem berhasil dibuat dan dikirim.</i>
+
+<i>Generated: ${new Date().toLocaleString("id-ID")}</i>`;
+
+      await bot.sendDocument(chatId, backupFilePath, {
+        caption: caption,
+        parse_mode: "HTML",
+      });
+
+      console.log(`✅ Database backup sent successfully to chat ${chatId}`);
+    } catch (error) {
+      console.error("❌ Database backup error:", error);
+      await bot.editMessageText(
+        `❌ <b>Error</b>\n\nGagal membuat atau mengirim backup database:\n<code>${error.message}</code>`,
+        {
+          chat_id: chatId,
+          message_id: loadingMsg.message_id,
+          parse_mode: "HTML",
+        }
+      );
+    } finally {
+      // Clean up the backup file after sending
+      if (backupFilePath && fs.existsSync(backupFilePath)) {
+        fs.unlink(backupFilePath, (err) => {
+          if (err) console.error(`Error deleting backup file: ${err}`);
+          else console.log(`🧹 Cleaned up backup file: ${backupFilePath}`);
+        });
+      }
     }
   });
 }

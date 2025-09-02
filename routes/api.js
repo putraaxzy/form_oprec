@@ -90,8 +90,8 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage: storage,
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB for certificates
-    files: 20, // Maximum 20 files per request
+    fileSize: 50 * 1024 * 1024, // Increased to 50MB to allow larger files
+    files: 50, // Increased maximum files to 50 per request
   },
   fileFilter: (req, file, cb) => {
     console.log(
@@ -223,19 +223,20 @@ router.post(
 
       // Check for duplicate name
       let duplicateCheckConnection = await getConnection();
-      
+
       try {
         const [existingUsers] = await duplicateCheckConnection.execute(
           "SELECT id, nama_lengkap FROM users WHERE LOWER(nama_lengkap) = LOWER(?)",
           [req.body.nama_lengkap]
         );
-        
+
         if (existingUsers.length > 0) {
           return res.status(400).json({
             success: false,
             message: "Nama sudah terdaftar",
-            error: "Nama yang Anda masukkan sudah terdaftar dalam sistem. Harap menghubungi narahubung untuk informasi lebih lanjut.",
-            duplicate_name: req.body.nama_lengkap
+            error:
+              "Nama yang Anda masukkan sudah terdaftar dalam sistem. Harap menghubungi narahubung untuk informasi lebih lanjut.",
+            duplicate_name: req.body.nama_lengkap,
           });
         }
       } finally {
@@ -350,7 +351,7 @@ router.post(
 
       // Check for duplicate phone number
       const connection = await getConnection();
-      
+
       try {
         const [existingUsers] = await connection.execute(
           "SELECT id FROM users WHERE nomor_telepon = ?",
@@ -417,7 +418,8 @@ router.post(
         if (prestasi_nama && Array.isArray(prestasi_nama)) {
           for (let i = 0; i < prestasi_nama.length; i++) {
             if (prestasi_nama[i] && prestasi_nama[i].trim()) {
-              const sertifikatPath = uploadedFiles.prestasi_sertifikat[i] || null;
+              const sertifikatPath =
+                uploadedFiles.prestasi_sertifikat[i] || null;
               await connection.execute(
                 "INSERT INTO prestasi (user_id, nama_prestasi, tingkat, tahun, sertifikat_path) VALUES (?, ?, ?, ?, ?)",
                 [
@@ -449,7 +451,7 @@ router.post(
 
       // Send Telegram notification
       try {
-        await sendTelegramNotification({
+        const telegramData = {
           // Basic info
           nama_lengkap,
           nama_panggilan,
@@ -457,11 +459,11 @@ router.post(
           jurusan,
           tempat_lahir,
           tanggal_lahir,
-          jenis_kelamin,
+          alamat,
           agama,
+          jenis_kelamin,
           nomor_telepon,
           email,
-          alamat,
           hobi,
           motto,
           // Experience
@@ -480,7 +482,15 @@ router.post(
           prestasi_sertifikat: uploadedFiles.prestasi_sertifikat,
           // Ticket
           ticket,
+        };
+
+        // Add division reasons dynamically
+        divisiArray.forEach((div) => {
+          const alasanField = `alasan_${div}`;
+          telegramData[alasanField] = req.body[alasanField];
         });
+
+        await sendTelegramNotification(telegramData);
         console.log("Telegram notification sent successfully");
       } catch (telegramError) {
         console.error("Failed to send Telegram notification:", telegramError);
@@ -515,11 +525,11 @@ router.get("/ticket/:ticket", async (req, res) => {
     }
 
     const connection = await getConnection();
-    
+
     try {
       // Get user data
       const [users] = await connection.execute(
-        "SELECT * FROM users WHERE ticket = ?", 
+        "SELECT * FROM users WHERE ticket = ?",
         [ticket]
       );
 
@@ -549,11 +559,11 @@ router.get("/ticket/:ticket", async (req, res) => {
       );
 
       // Map status dari database ke status yang diharapkan frontend
-      let mappedStatus = 'pending'; // Default
-      if (user.status === 'LOLOS' || user.status === 'approved') {
-        mappedStatus = 'approved';
-      } else if (user.status === 'DITOLAK' || user.status === 'rejected') {
-        mappedStatus = 'rejected';
+      let mappedStatus = "pending"; // Default
+      if (user.status === "LOLOS" || user.status === "approved") {
+        mappedStatus = "approved";
+      } else if (user.status === "DITOLAK" || user.status === "rejected") {
+        mappedStatus = "rejected";
       }
 
       const response = {
@@ -571,7 +581,7 @@ router.get("/ticket/:ticket", async (req, res) => {
         tanggal_lahir: user.tanggal_lahir,
         jenis_kelamin: user.jenis_kelamin,
         alamat: user.alamat,
-        divisi: divisi
+        divisi: divisi,
       };
 
       // If LOLOS/approved, generate QR code with WhatsApp group link
@@ -579,7 +589,8 @@ router.get("/ticket/:ticket", async (req, res) => {
         const qrData = {
           ticket: user.ticket,
           nama: user.nama_lengkap,
-          whatsapp_link: "https://chat.whatsapp.com/LkdeOZ5GYaVBh7keVEpZOE?mode=ac_t",
+          whatsapp_link:
+            "https://chat.whatsapp.com/LkdeOZ5GYaVBh7keVEpZOE?mode=ac_t",
           ts: Date.now(),
         };
 
@@ -635,7 +646,7 @@ router.post("/verify", async (req, res) => {
 
     // Check user status
     const connection = await getConnection();
-    
+
     try {
       const [users] = await connection.execute(
         "SELECT nama_lengkap, status FROM users WHERE ticket = ?",
@@ -662,7 +673,9 @@ router.post("/verify", async (req, res) => {
         success: true,
         message: "QR code valid",
         nama: user.nama_lengkap,
-        whatsapp_link: whatsapp_link || "https://chat.whatsapp.com/LkdeOZ5GYaVBh7keVEpZOE?mode=ac_t",
+        whatsapp_link:
+          whatsapp_link ||
+          "https://chat.whatsapp.com/LkdeOZ5GYaVBh7keVEpZOE?mode=ac_t",
       });
     } finally {
       connection.release();
