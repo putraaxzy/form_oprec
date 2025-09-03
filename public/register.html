@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pendaftaran OSIS 2025/2026</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="response-error-handler.js"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -2050,12 +2051,14 @@
             if (response.ok) {
               result = await response.json();
             } else {
+              // Clone the response to allow reading the body multiple times if needed
+              const clonedResponse = response.clone();
               // Attempt to parse as JSON first for error messages
               try {
                 result = await response.json();
               } catch (jsonError) {
                 // If it's not JSON, it might be HTML or plain text
-                const errorText = await response.text();
+                const errorText = await clonedResponse.text(); // Use the cloned response here
                 console.error("Server returned non-JSON error:", errorText);
                 throw new Error(
                   `Server error: ${response.status} ${response.statusText}. Please try again. (Details: ${errorText.substring(0, 100)}...)`
