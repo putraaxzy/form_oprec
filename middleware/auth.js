@@ -1,10 +1,10 @@
 const rateLimit = require("express-rate-limit");
-const { db } = require("../database/database");
+const { getConnection } = require("../database/mysql-database");
 
-// Rate limiting untuk registrasi
+// Rate limiting untuk registrasi (dibuat tidak terbatas)
 const registrationLimiter = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 3600000, // 1 hour
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 3, // 3 requests per hour per IP
+  windowMs: 60 * 1000, // 1 minute
+  max: 1000, // 1000 requests per minute per IP
   message: {
     success: false,
     message:
@@ -14,59 +14,21 @@ const registrationLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// Rate limiting untuk cek status
+// Rate limiting untuk cek status (dibuat tidak terbatas)
 const statusCheckLimiter = rateLimit({
-  windowMs: 60000, // 1 minute
-  max: 10, // 10 requests per minute per IP
+  windowMs: 60 * 1000, // 1 minute
+  max: 1000, // 1000 requests per minute per IP
   message: {
     success: false,
     message: "Terlalu banyak permintaan cek status. Silakan tunggu sebentar.",
   },
 });
 
-// Rate limiting umum
+// Rate limiting umum (dibuat tidak terbatas)
 const generalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // 100 requests per 15 minutes per IP
+  windowMs: 60 * 1000, // 1 minute
+  max: 1000, // 1000 requests per minute per IP
 });
-
-// Middleware untuk validasi file upload
-const validateFileUpload = (req, res, next) => {
-  if (!req.files || req.files.length === 0) {
-    return res.status(400).json({
-      success: false,
-      message: "Minimal satu sertifikat harus diupload",
-    });
-  }
-
-  const maxSize = parseInt(process.env.MAX_FILE_SIZE) || 5242880; // 5MB default
-  const allowedTypes = (
-    process.env.ALLOWED_FILE_TYPES || "jpg,jpeg,png,pdf"
-  ).split(",");
-
-  for (const file of req.files) {
-    if (file.size > maxSize) {
-      return res.status(400).json({
-        success: false,
-        message: `File ${
-          file.originalname
-        } terlalu besar. Maksimal ${Math.round(maxSize / 1024 / 1024)}MB`,
-      });
-    }
-
-    const fileExtension = file.originalname.split(".").pop().toLowerCase();
-    if (!allowedTypes.includes(fileExtension)) {
-      return res.status(400).json({
-        success: false,
-        message: `Format file ${
-          file.originalname
-        } tidak didukung. Format yang diizinkan: ${allowedTypes.join(", ")}`,
-      });
-    }
-  }
-
-  next();
-};
 
 // Middleware untuk logging request
 const requestLogger = (req, res, next) => {
@@ -100,8 +62,9 @@ const errorHandler = (err, req, res, next) => {
     });
   }
 
-  // Database error handling
-  if (err.code === "SQLITE_CONSTRAINT_UNIQUE") {
+  // Database error handling for MySQL
+  // Check for duplicate entry error code (ER_DUP_ENTRY for MySQL)
+  if (err.code === "ER_DUP_ENTRY") {
     return res.status(400).json({
       success: false,
       message: "Data sudah ada (email/HP sudah terdaftar)",
@@ -119,7 +82,6 @@ module.exports = {
   registrationLimiter,
   statusCheckLimiter,
   generalLimiter,
-  validateFileUpload,
   requestLogger,
   errorHandler,
 };

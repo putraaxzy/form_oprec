@@ -4,7 +4,7 @@
  */
 
 const ExcelJS = require("exceljs");
-const pool = require("../database/mysql-database");
+const { getConnection } = require("../database/mysql-database-refactored");
 const path = require("path");
 const fs = require("fs");
 
@@ -146,7 +146,7 @@ async function generateEnhancedExcelReport() {
 
   try {
     console.log("📊 Generating enhanced Excel report...");
-    connection = await pool.getConnection();
+    connection = await getConnection();
 
     const users = await fetchUsersData(connection);
 
@@ -300,4 +300,5 @@ async function generateEnhancedExcelReport() {
 
 module.exports = {
   generateEnhancedExcelReport,
+  exportToExcel: generateEnhancedExcelReport, // Alias untuk compatibility
 };

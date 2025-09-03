@@ -4,12 +4,12 @@ const path = require("path");
 const fs = require("fs-extra");
 const { validationResult } = require("express-validator");
 const QRCode = require("qrcode");
-const { getConnection } = require("../database/mysql-database");
+const { getConnection } = require("../database/mysql-database-refactored");
 const { sendTelegramNotification } = require("../utils/telegram-refactored");
 const {
   validateRegistration,
   validateTicketCheck, 
-  validateQRVerification,
+  validateQRCheck,
   handleValidationErrors,
 } = require("../middleware/validators-minimal");
 
@@ -239,9 +239,6 @@ class RegistrationProcessor {
     try {
       await connection.beginTransaction();
 
-      // Helper function to convert undefined to null
-      const sanitize = (value) => value === undefined || value === '' ? null : value;
-
       // Insert main user data
       const [userResult] = await connection.execute(
         `INSERT INTO users (
@@ -251,21 +248,21 @@ class RegistrationProcessor {
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           ticket,
-          sanitize(userData.nama_lengkap),
-          sanitize(userData.nama_panggilan),
-          sanitize(userData.kelas),
-          sanitize(userData.jurusan),
-          sanitize(userData.tempat_lahir),
-          sanitize(userData.tanggal_lahir),
-          sanitize(userData.alamat),
-          sanitize(userData.agama),
-          sanitize(userData.jenis_kelamin),
-          sanitize(userData.nomor_telepon),
-          sanitize(userData.email),
-          sanitize(userData.hobi),
-          sanitize(userData.motto),
-          sanitize(uploadedFiles.foto),
-          sanitize(userData.motivasi),
+          userData.nama_lengkap,
+          userData.nama_panggilan,
+          userData.kelas,
+          userData.jurusan,
+          userData.tempat_lahir,
+          userData.tanggal_lahir,
+          userData.alamat,
+          userData.agama,
+          userData.jenis_kelamin,
+          userData.nomor_telepon,
+          userData.email,
+          userData.hobi,
+          userData.motto,
+          uploadedFiles.foto,
+          userData.motivasi,
         ]
       );
 
@@ -281,9 +278,9 @@ class RegistrationProcessor {
               "INSERT INTO organisasi (user_id, nama_organisasi, jabatan, tahun, sertifikat_path) VALUES (?, ?, ?, ?, ?)",
               [
                 userId,
-                sanitize(userData.organisasi_nama[i]),
-                sanitize(userData.organisasi_jabatan[i]),
-                sanitize(userData.organisasi_tahun[i]),
+                userData.organisasi_nama[i],
+                userData.organisasi_jabatan[i] || "",
+                userData.organisasi_tahun[i] || "",
                 sertifikatPath,
               ]
             );
@@ -301,9 +298,9 @@ class RegistrationProcessor {
               "INSERT INTO prestasi (user_id, nama_prestasi, tingkat, tahun, sertifikat_path) VALUES (?, ?, ?, ?, ?)",
               [
                 userId,
-                sanitize(userData.prestasi_nama[i]),
-                sanitize(userData.prestasi_tingkat[i]),
-                sanitize(userData.prestasi_tahun[i]),
+                userData.prestasi_nama[i],
+                userData.prestasi_tingkat[i] || "",
+                userData.prestasi_tahun[i] || "",
                 sertifikatPath,
               ]
             );
@@ -320,7 +317,7 @@ class RegistrationProcessor {
           if (alasan && alasan.trim()) {
             await connection.execute(
               "INSERT INTO divisi (user_id, nama_divisi, alasan) VALUES (?, ?, ?)",
-              [userId, sanitize(div), sanitize(alasan)]
+              [userId, div, alasan]
             );
             console.log(`✅ Division ${div} saved with reason`);
           }
@@ -422,9 +419,7 @@ router.post(
   "/register",
   processor.fileManager.upload.any(),
   
-  // Skip validation for now - admin will validate manually
-  // validateRegistration,
-  // handleValidationErrors,
+  // Enhanced multer error handling
   (err, req, res, next) => {
     if (err instanceof multer.MulterError) {
       console.error("❌ Multer error:", err);
@@ -511,7 +506,16 @@ router.post(
       // Send Telegram notification (non-blocking)
       setImmediate(async () => {
         try {
+          console.log("📤 Preparing Telegram notification...");
           const telegramData = processor.prepareTelegramData(userData, uploadedFiles, ticket);
+          console.log("📱 Calling sendTelegramNotification with data:", {
+            nama_lengkap: telegramData.nama_lengkap,
+            ticket: telegramData.ticket,
+            hasPhoto: !!telegramData.foto_path,
+            organisasi: telegramData.organisasi ? telegramData.organisasi.length : 0,
+            prestasi: telegramData.prestasi ? telegramData.prestasi.length : 0
+          });
+          
           const result = await sendTelegramNotification(telegramData);
           
           if (result.success) {
@@ -520,7 +524,8 @@ router.post(
             console.error("❌ Telegram notification failed:", result.error);
           }
         } catch (telegramError) {
-          console.error("❌ Telegram notification error:", telegramError);
+          console.error("❌ Telegram notification error:", telegramError.message);
+          console.error("📊 Error details:", telegramError);
           // Don't fail the registration
         }
       });
@@ -599,7 +604,11 @@ router.get(
         const responseData = {
           success: true,
           ticket: user.ticket,
-          status: user.status,
+          // Map status values for frontend compatibility (lowercase)
+          status: user.status === 'LOLOS' ? 'approved' : 
+                  user.status === 'TIDAK_LOLOS' ? 'rejected' : 'pending',
+          // Map field names for frontend compatibility  
+          nama: user.nama_lengkap,  // Frontend expects 'nama'
           nama_lengkap: user.nama_lengkap,
           nama_panggilan: user.nama_panggilan,
           kelas: user.kelas,
@@ -614,7 +623,10 @@ router.get(
           hobi: user.hobi,
           motto: user.motto,
           motivasi: user.motivasi,
-          divisi: user.divisi_list ? user.divisi_list.split(',') : [],
+          // Format divisi for frontend compatibility
+          divisi: user.divisi_list ? user.divisi_list.split(',').map(nama => ({
+            nama_divisi: nama.trim()
+          })) : [],
           created_at: user.created_at,
           updated_at: user.updated_at,
         };
@@ -626,7 +638,7 @@ router.get(
             const qrCode = await processor.generateQRCode({
               whatsapp_link: process.env.DEFAULT_WHATSAPP_GROUP_LINK
             });
-            responseData.qr_code = qrCode;
+            responseData.barcode_base64 = qrCode;  // Frontend expects 'barcode_base64'
             responseData.whatsapp_link = process.env.DEFAULT_WHATSAPP_GROUP_LINK;
           } catch (qrError) {
             console.warn("⚠️ Could not generate QR code:", qrError.message);
@@ -662,7 +674,6 @@ router.get(
 // QR verification endpoint
 router.post(
   "/verify-qr",
-  validateQRVerification,
   handleValidationErrors,
   async (req, res) => {
     try {

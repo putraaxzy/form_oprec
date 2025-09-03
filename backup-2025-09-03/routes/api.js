@@ -11,7 +11,7 @@ const {
   validateTicketCheck, 
   validateQRVerification,
   handleValidationErrors,
-} = require("../middleware/validators-minimal");
+} = require("../middleware/validators");
 
 const router = express.Router();
 
@@ -239,9 +239,6 @@ class RegistrationProcessor {
     try {
       await connection.beginTransaction();
 
-      // Helper function to convert undefined to null
-      const sanitize = (value) => value === undefined || value === '' ? null : value;
-
       // Insert main user data
       const [userResult] = await connection.execute(
         `INSERT INTO users (
@@ -251,21 +248,21 @@ class RegistrationProcessor {
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           ticket,
-          sanitize(userData.nama_lengkap),
-          sanitize(userData.nama_panggilan),
-          sanitize(userData.kelas),
-          sanitize(userData.jurusan),
-          sanitize(userData.tempat_lahir),
-          sanitize(userData.tanggal_lahir),
-          sanitize(userData.alamat),
-          sanitize(userData.agama),
-          sanitize(userData.jenis_kelamin),
-          sanitize(userData.nomor_telepon),
-          sanitize(userData.email),
-          sanitize(userData.hobi),
-          sanitize(userData.motto),
-          sanitize(uploadedFiles.foto),
-          sanitize(userData.motivasi),
+          userData.nama_lengkap,
+          userData.nama_panggilan,
+          userData.kelas,
+          userData.jurusan,
+          userData.tempat_lahir,
+          userData.tanggal_lahir,
+          userData.alamat,
+          userData.agama,
+          userData.jenis_kelamin,
+          userData.nomor_telepon,
+          userData.email,
+          userData.hobi,
+          userData.motto,
+          uploadedFiles.foto,
+          userData.motivasi,
         ]
       );
 
@@ -281,9 +278,9 @@ class RegistrationProcessor {
               "INSERT INTO organisasi (user_id, nama_organisasi, jabatan, tahun, sertifikat_path) VALUES (?, ?, ?, ?, ?)",
               [
                 userId,
-                sanitize(userData.organisasi_nama[i]),
-                sanitize(userData.organisasi_jabatan[i]),
-                sanitize(userData.organisasi_tahun[i]),
+                userData.organisasi_nama[i],
+                userData.organisasi_jabatan[i] || "",
+                userData.organisasi_tahun[i] || "",
                 sertifikatPath,
               ]
             );
@@ -301,9 +298,9 @@ class RegistrationProcessor {
               "INSERT INTO prestasi (user_id, nama_prestasi, tingkat, tahun, sertifikat_path) VALUES (?, ?, ?, ?, ?)",
               [
                 userId,
-                sanitize(userData.prestasi_nama[i]),
-                sanitize(userData.prestasi_tingkat[i]),
-                sanitize(userData.prestasi_tahun[i]),
+                userData.prestasi_nama[i],
+                userData.prestasi_tingkat[i] || "",
+                userData.prestasi_tahun[i] || "",
                 sertifikatPath,
               ]
             );
@@ -320,7 +317,7 @@ class RegistrationProcessor {
           if (alasan && alasan.trim()) {
             await connection.execute(
               "INSERT INTO divisi (user_id, nama_divisi, alasan) VALUES (?, ?, ?)",
-              [userId, sanitize(div), sanitize(alasan)]
+              [userId, div, alasan]
             );
             console.log(`✅ Division ${div} saved with reason`);
           }
@@ -422,9 +419,7 @@ router.post(
   "/register",
   processor.fileManager.upload.any(),
   
-  // Skip validation for now - admin will validate manually
-  // validateRegistration,
-  // handleValidationErrors,
+  // Enhanced multer error handling
   (err, req, res, next) => {
     if (err instanceof multer.MulterError) {
       console.error("❌ Multer error:", err);

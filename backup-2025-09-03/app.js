@@ -5,13 +5,13 @@ const helmet = require("helmet");
 const path = require("path");
 const fs = require("fs-extra");
 
-// Import modules
-const { initDatabase, dbManager } = require("./database/mysql-database");
-const { initTelegramBot, botManager } = require("./utils/telegram");
-const apiRoutes = require("./routes/api");
+// Import refactored modules
+const { initDatabase, dbManager } = require("./database/mysql-database-refactored");
+const { initTelegramBot, botManager } = require("./utils/telegram-refactored");
+const apiRoutes = require("./routes/api-refactored");
 
 // Import middleware
-const { sanitizeInput, validateRateLimit } = require("./middleware/validators");
+const { sanitizeInput, validateRateLimit } = require("./middleware/validators-refactored");
 
 // Enhanced Application Class
 class OSISRecruitmentApp {
@@ -217,14 +217,18 @@ class OSISRecruitmentApp {
       });
     });
 
-    // Handle 404 for non-API routes
-    this.app.use((req, res, next) => {
-      // Skip API and static routes
+    // Catch-all for SPA routing (if needed)
+    this.app.get("*", (req, res) => {
+      // Don't catch API routes
       if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/')) {
-        return next();
+        return res.status(404).json({
+          success: false,
+          message: "Endpoint tidak ditemukan",
+          path: req.path
+        });
       }
       
-      // Serve register.html for unknown routes (SPA behavior)
+      // Serve index for other routes
       const indexPath = path.join(__dirname, "public", "register.html");
       if (fs.existsSync(indexPath)) {
         res.sendFile(indexPath);

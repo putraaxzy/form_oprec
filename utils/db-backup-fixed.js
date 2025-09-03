@@ -247,32 +247,9 @@ async function createDatabaseBackup() {
     throw error;
   }
 }
-      fs.mkdirSync(backupDir, { recursive: true });
-    }
 
-    const mysqldumpPath = process.env.MYSQLDUMP_PATH || "mysqldump"; // Use env variable or fallback to global mysqldump
-    const command = `${mysqldumpPath} -h ${dbConfig.host} -P ${
-      dbConfig.port
-    } -u ${dbConfig.user} ${
-      dbConfig.password ? `-p${dbConfig.password}` : ""
-    } ${dbConfig.database} > ${backupFilePath}`;
-
-    exec(command, (error, stdout, stderr) => {
-      if (error) {
-        console.error(`exec error: ${error}`);
-        return reject(
-          new Error(`Database backup failed: ${stderr || error.message}`)
-        );
-      }
-      if (stderr) {
-        console.warn(`mysqldump stderr: ${stderr}`);
-      }
-      console.log(`Database backup created at: ${backupFilePath}`);
-      resolve(backupFilePath);
-    });
-  });
-}
-
+// Export functions
 module.exports = {
   createDatabaseBackup,
+  backupManager
 };

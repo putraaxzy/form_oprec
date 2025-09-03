@@ -4,9 +4,6 @@ const { body, param, validationResult } = require("express-validator");
 const handleValidationErrors = (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    // Minimal logging untuk production
-    console.log("❌ Validation failed:", errors.array().length, "errors");
-    
     // Group errors by field for better readability
     const groupedErrors = errors.array().reduce((acc, error) => {
       const field = error.path;
@@ -122,8 +119,8 @@ const validateRegistration = [
 
   body("alamat")
     .trim()
-    .isLength({ min: 5, max: 2000 })
-    .withMessage("Alamat minimal 5 karakter"),
+    .isLength({ min: 10, max: 500 })
+    .withMessage("Alamat harus antara 10-500 karakter"),
 
   body("agama")
     .isIn(["Islam", "Kristen", "Katolik", "Hindu", "Buddha", "Konghucu", "Kepercayaan"])
@@ -164,8 +161,8 @@ const validateRegistration = [
   // Motivation and Division
   body("motivasi")
     .trim()
-    .isLength({ min: 10, max: 5000 })
-    .withMessage("Motivasi minimal 10 karakter"),
+    .isLength({ min: 20, max: 1000 })
+    .withMessage("Motivasi bergabung harus antara 20-1000 karakter"),
 
   body("divisi")
     .custom((value) => {
@@ -181,10 +178,7 @@ const validateRegistration = [
   body("divisi.*")
     .isIn([
       "Humas", "Keamanan", "Kebersihan", "Keagamaan", "Kewirausahaan",
-      "Olahraga", "Seni", "Teknologi", "Akademik", "Sosial",
-      "sekretaris", "jurnalistik", "Sekretaris", "Jurnalistik",
-      "humas", "keamanan", "kebersihan", "keagamaan", "kewirausahaan",
-      "olahraga", "seni", "teknologi", "akademik", "sosial"
+      "Olahraga", "Seni", "Teknologi", "Akademik", "Sosial"
     ])
     .withMessage("Pilihan divisi tidak valid"),
 
@@ -278,47 +272,6 @@ const validateRegistration = [
     .trim()
     .isLength({ min: 10, max: 500 })
     .withMessage("Alasan memilih divisi Sosial harus antara 10-500 karakter"),
-
-  // Additional division validations
-  body("alasan_sekretaris")
-    .if(body("divisi").custom(value => {
-      const divisiArray = Array.isArray(value) ? value : [value];
-      return divisiArray.some(d => d && (d.toLowerCase() === "sekretaris"));
-    }))
-    .optional({ nullable: true, checkFalsy: true })
-    .trim()
-    .isLength({ min: 5, max: 2000 })
-    .withMessage("Alasan memilih divisi sekretaris minimal 5 karakter"),
-
-  body("alasan_jurnalistik")
-    .if(body("divisi").custom(value => {
-      const divisiArray = Array.isArray(value) ? value : [value];
-      return divisiArray.some(d => d && (d.toLowerCase() === "jurnalistik"));
-    }))
-    .optional({ nullable: true, checkFalsy: true })
-    .trim()
-    .isLength({ min: 5, max: 2000 })
-    .withMessage("Alasan memilih divisi jurnalistik minimal 5 karakter"),
-
-  body("alasan_Sekretaris")
-    .if(body("divisi").custom(value => {
-      const divisiArray = Array.isArray(value) ? value : [value];
-      return divisiArray.includes("Sekretaris");
-    }))
-    .optional({ nullable: true, checkFalsy: true })
-    .trim()
-    .isLength({ min: 5, max: 2000 })
-    .withMessage("Alasan memilih divisi Sekretaris minimal 5 karakter"),
-
-  body("alasan_Jurnalistik")
-    .if(body("divisi").custom(value => {
-      const divisiArray = Array.isArray(value) ? value : [value];
-      return divisiArray.includes("Jurnalistik");
-    }))
-    .optional({ nullable: true, checkFalsy: true })
-    .trim()
-    .isLength({ min: 5, max: 2000 })
-    .withMessage("Alasan memilih divisi Jurnalistik minimal 5 karakter"),
 
   // Organization experience validation
   body("organisasi_nama")
