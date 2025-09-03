@@ -19,9 +19,9 @@ const sanitizeInput = (req, res, next) => {
   // Basic XSS protection - sanitize common fields
   if (req.body) {
     for (let key in req.body) {
-      if (typeof req.body[key] === 'string') {
+      if (typeof req.body[key] === "string") {
         req.body[key] = req.body[key]
-          .replace(/[<>]/g, '') // Remove < and >
+          .replace(/[<>]/g, "") // Remove < and >
           .trim();
       }
     }
@@ -75,15 +75,32 @@ class OSISRecruitmentApp {
     console.log("🔧 Setting up middleware...");
 
     // Performance optimizations for high traffic
-    this.app.disable('x-powered-by');
-    this.app.set('trust proxy', 1); // Trust first proxy for load balancers
-    
+    this.app.disable("x-powered-by");
+    this.app.set("trust proxy", 1); // Trust first proxy for load balancers
+
+    // Enhanced payload handling for large file uploads
+    this.app.use(
+      express.json({
+        limit: process.env.JSON_LIMIT || "50mb",
+        extended: true,
+        parameterLimit: 10000,
+      })
+    );
+
+    this.app.use(
+      express.urlencoded({
+        limit: process.env.URL_ENCODED_LIMIT || "50mb",
+        extended: true,
+        parameterLimit: 10000,
+      })
+    );
+
     // Request limit and rate limiting middleware
     this.app.use((req, res, next) => {
       // Add connection keep-alive headers
       res.set({
-        'Connection': 'keep-alive',
-        'Keep-Alive': 'timeout=5, max=1000'
+        Connection: "keep-alive",
+        "Keep-Alive": "timeout=5, max=1000",
       });
       next();
     });
@@ -144,19 +161,21 @@ class OSISRecruitmentApp {
     );
 
     // Compression middleware for better performance
-    this.app.use(compression({
-      filter: (req, res) => {
-        // Compress all responses except for file uploads
-        return !req.headers['content-type']?.includes('multipart/form-data');
-      },
-      threshold: 1024, // Only compress responses larger than 1KB
-      level: 6, // Compression level (1-9, 6 is good balance)
-    }));
+    this.app.use(
+      compression({
+        filter: (req, res) => {
+          // Compress all responses except for file uploads
+          return !req.headers["content-type"]?.includes("multipart/form-data");
+        },
+        threshold: 1024, // Only compress responses larger than 1KB
+        level: 6, // Compression level (1-9, 6 is good balance)
+      })
+    );
 
     // Request parsing middleware with optimized limits for high traffic
     this.app.use(
       express.json({
-        limit: process.env.JSON_LIMIT || "5mb", // Reduced from 10mb to 5mb
+        limit: process.env.JSON_LIMIT || "50mb", // Consistent with initial setup
         strict: true,
       })
     );
@@ -164,25 +183,31 @@ class OSISRecruitmentApp {
     this.app.use(
       express.urlencoded({
         extended: true,
-        limit: process.env.URL_ENCODED_LIMIT || "5mb", // Reduced from 10mb to 5mb
-        parameterLimit: 500, // Reduced from 1000 to 500
+        limit: process.env.URL_ENCODED_LIMIT || "50mb", // Consistent with initial setup
+        parameterLimit: parseInt(
+          process.env.URL_ENCODED_PARAMETER_LIMIT || "10000"
+        ), // Consistent with initial setup
       })
     );
 
     // Performance monitoring middleware
     this.app.use((req, res, next) => {
       const start = Date.now();
-      
-      res.on('finish', () => {
+
+      res.on("finish", () => {
         const duration = Date.now() - start;
-        console.log(`⏱️  ${req.method} ${req.url} - ${res.statusCode} - ${duration}ms`);
-        
+        console.log(
+          `⏱️  ${req.method} ${req.url} - ${res.statusCode} - ${duration}ms`
+        );
+
         // Log slow requests (>1000ms)
         if (duration > 1000) {
-          console.warn(`🐌 Slow request detected: ${req.method} ${req.url} took ${duration}ms`);
+          console.warn(
+            `🐌 Slow request detected: ${req.method} ${req.url} took ${duration}ms`
+          );
         }
       });
-      
+
       next();
     });
 

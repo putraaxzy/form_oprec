@@ -75,9 +75,10 @@ class FileUploadManager {
     return multer({
       storage: this.storage,
       limits: {
-        fileSize: 20 * 1024 * 1024, // Reduced from 50MB to 20MB for faster processing
-        files: 20, // Reduced from 50 to 20 files per request
-        fieldSize: 10 * 1024 * 1024, // 10MB max field size
+        fileSize: parseInt(process.env.MAX_FILE_SIZE_MB || "50") * 1024 * 1024, // Configurable max file size, default 50MB
+        files: parseInt(process.env.MAX_FILES_PER_REQUEST || "20"), // Configurable max files per request, default 20
+        fieldSize:
+          parseInt(process.env.MAX_FIELD_SIZE_MB || "10") * 1024 * 1024, // Configurable max field size, default 10MB
         fieldNameSize: 100, // 100 bytes max field name
         fields: 100, // max 100 fields
       },
@@ -266,7 +267,7 @@ class RegistrationProcessor {
       await connection.beginTransaction();
 
       // Helper function to convert undefined to null
-      const safeValue = (value) => value === undefined ? null : value;
+      const safeValue = (value) => (value === undefined ? null : value);
 
       // Insert main user data
       const [userResult] = await connection.execute(
@@ -467,10 +468,14 @@ router.post(
 
       switch (err.code) {
         case "LIMIT_FILE_SIZE":
-          message = "File terlalu besar. Maksimal 50MB per file.";
+          message = `File terlalu besar. Maksimal ${
+            process.env.MAX_FILE_SIZE_MB || "50"
+          }MB per file.`;
           break;
         case "LIMIT_FILE_COUNT":
-          message = "Terlalu banyak file. Maksimal 50 file.";
+          message = `Terlalu banyak file. Maksimal ${
+            process.env.MAX_FILES_PER_REQUEST || "20"
+          } file.`;
           break;
         case "LIMIT_UNEXPECTED_FILE":
           message = "Format file tidak didukung atau field tidak valid.";
@@ -664,15 +669,16 @@ router.get(
 
         const user = users[0];
 
-        // Format response compatible with hasil.html
+        // Format response compatible dengan hasil.html
         const responseData = {
           success: true,
           ticket: user.ticket,
+          raw_status: user.status, // Status asli dari database
           // Map status values for frontend compatibility (lowercase)
           status:
             user.status === "LOLOS"
               ? "approved"
-              : user.status === "TIDAK_LOLOS"
+              : user.status === "DITOLAK" || user.status === "PENDING_TOLAK"
               ? "rejected"
               : "pending",
           // Map field names for frontend compatibility

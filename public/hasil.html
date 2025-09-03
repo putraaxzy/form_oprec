@@ -425,18 +425,43 @@
           populateUserData(data);
         } else if (data.status === "rejected") {
           header.classList.add("osis-header-rejected");
-          headerText.textContent = "MAAF, ANDA DINYATAKAN BELUM LOLOS";
-          mainContent.classList.add("hidden"); // Sembunyikan data detail
-          footerTitle.textContent = "Evaluasi Pendaftaran";
-          footerMessage.textContent =
-            "Terima kasih atas partisipasi Anda. Jangan berkecil hati, tetaplah berkontribusi untuk kemajuan sekolah melalui cara lain. Terus semangat!";
+          
+          // Customize message based on raw status
+          if (data.raw_status === "PENDING_TOLAK") {
+            headerText.textContent = "PENDAFTARAN ANDA SEDANG DALAM PROSES EVALUASI PENOLAKAN";
+            footerTitle.textContent = "Menunggu Keputusan Final";
+            footerMessage.textContent =
+              "Status Anda saat ini ditandai untuk ditolak dan menunggu proses finalisasi dari admin. Hasil final akan segera diumumkan.";
+          } else {
+            headerText.textContent = "MAAF, ANDA DINYATAKAN BELUM LOLOS";
+            footerTitle.textContent = "Evaluasi Pendaftaran";
+            footerMessage.textContent =
+              "Terima kasih atas partisipasi Anda. Jangan berkecil hati, tetaplah berkontribusi untuk kemajuan sekolah melalui cara lain. Terus semangat!";
+          }
+          
+          // Only hide details for final rejection
+          if (data.raw_status === "DITOLAK") {
+            mainContent.classList.add("hidden");
+          } else {
+            populateUserData(data); // Show data for pending rejection
+          }
         } else {
           // pending status
           header.classList.add("osis-header-pending");
-          headerText.textContent = "PENDAFTARAN ANDA SEDANG DIPROSES";
-          footerTitle.textContent = "Harap Menunggu Hasil Seleksi.";
-          footerMessage.textContent =
-            "Tim kami telah menerima berkas data Anda dan sedang melakukan proses validasi. Pengumuman hasil akhir akan segera dirilis. Terima kasih.";
+          
+          // Customize message based on raw status
+          if (data.raw_status === "PENDING_TERIMA") {
+            headerText.textContent = "PENDAFTARAN ANDA SEDANG DALAM PROSES PERSETUJUAN";
+            footerTitle.textContent = "Menunggu Konfirmasi Final";
+            footerMessage.textContent =
+              "Selamat! Status Anda saat ini ditandai untuk disetujui dan menunggu proses finalisasi dari admin. Hasil final akan segera diumumkan.";
+          } else {
+            headerText.textContent = "PENDAFTARAN ANDA SEDANG DIPROSES";
+            footerTitle.textContent = "Harap Menunggu Hasil Seleksi.";
+            footerMessage.textContent =
+              "Tim kami telah menerima berkas data Anda dan sedang melakukan proses validasi. Pengumuman hasil akhir akan segera dirilis. Terima kasih.";
+          }
+          
           populateUserData(data);
         }
       }
