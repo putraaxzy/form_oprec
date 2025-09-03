@@ -317,8 +317,46 @@ function collectMediaFiles(data) {
 }
 
 async function sendMedia(message, mediaFiles, data) {
-  const photos = mediaFiles.filter((file) => file.type === "photo");
-  const documents = mediaFiles.filter((file) => file.type === "document");
+  const PHOTO_MAX_SIZE = 10485760; // 10 MB in bytes
+
+  let photosToSend = [];
+  let documentsToSend = [];
+
+  // Separate photos and documents, checking photo size
+  for (const file of mediaFiles) {
+    if (file.type === "photo") {
+      try {
+        const stats = fs.statSync(file.path);
+        if (stats.size > PHOTO_MAX_SIZE) {
+          console.warn(
+            `⚠️ Photo ${file.path} (${stats.size} bytes) is too large for a photo, sending as document.`
+          );
+          documentsToSend.push({
+            type: "document",
+            path: file.path,
+            caption: `🖼️ <b>Gambar</b> - ${file.caption.replace(
+              /<\/?b>/g,
+              ""
+            )} (Ukuran Besar)`, // Modify caption for document
+          });
+        } else {
+          photosToSend.push(file);
+        }
+      } catch (err) {
+        console.error(`❌ Error getting file stats for ${file.path}:`, err);
+        documentsToSend.push({
+          type: "document",
+          path: file.path,
+          caption: `🖼️ <b>Gambar</b> - ${file.caption.replace(
+            /<\/?b>/g,
+            ""
+          )} (Gagal Cek Ukuran)`,
+        });
+      }
+    } else {
+      documentsToSend.push(file);
+    }
+  }
 
   try {
     let mainCaption = message;
@@ -336,16 +374,20 @@ async function sendMedia(message, mediaFiles, data) {
     }
 
     // Send photos
-    if (photos.length > 0) {
-      if (photos.length === 1) {
+    if (photosToSend.length > 0) {
+      if (photosToSend.length === 1) {
         // Send single photo
-        await bot.sendPhoto(process.env.TELEGRAM_CHAT_ID, photos[0].path, {
-          caption: mainCaption, // Use mainCaption for the single photo
-          parse_mode: "HTML",
-        });
+        await bot.sendPhoto(
+          process.env.TELEGRAM_CHAT_ID,
+          photosToSend[0].path,
+          {
+            caption: mainCaption, // Use mainCaption for the single photo
+            parse_mode: "HTML",
+          }
+        );
       } else {
         // Send multiple photos as a media group
-        const photoGroup = photos.map((photo, index) => ({
+        const photoGroup = photosToSend.map((photo, index) => ({
           type: "photo",
           media: { source: photo.path },
           caption:
@@ -364,9 +406,11 @@ async function sendMedia(message, mediaFiles, data) {
     }
 
     // Send documents individually
-    if (documents.length > 0) {
-      console.log(`📨 Sending ${documents.length} documents individually...`);
-      for (const doc of documents) {
+    if (documentsToSend.length > 0) {
+      console.log(
+        `📨 Sending ${documentsToSend.length} documents individually...`
+      );
+      for (const doc of documentsToSend) {
         try {
           await bot.sendDocument(process.env.TELEGRAM_CHAT_ID, doc.path, {
             caption: doc.caption, // Documents always use their specific captions
@@ -387,14 +431,14 @@ async function sendMedia(message, mediaFiles, data) {
     }
 
     if (
-      photos.length === 0 &&
-      documents.length === 0 &&
+      photosToSend.length === 0 &&
+      documentsToSend.length === 0 &&
       mainCaption.length > captionLimit
     ) {
       // If no media at all, and the message was long, it was already sent.
       // If no media at all, and the message was short, it was sent above.
       // This condition handles the case where there was no media, and the message was short,
-      // but it wasn't sent because photos.length was 0 and the else if condition was not met.
+      // but it wasn't sent because photosToSend.length was 0 and the else if condition was not met.
       // This ensures the message is always sent.
       await sendTextOnly(message);
     }
@@ -1467,8 +1511,46 @@ function createDetailMessage(user) {
 
 // Enhanced sendMedia function for specific chat
 async function sendMediaToChat(message, mediaFiles, user, chatId) {
-  const photos = mediaFiles.filter((file) => file.type === "photo");
-  const documents = mediaFiles.filter((file) => file.type === "document");
+  const PHOTO_MAX_SIZE = 10485760; // 10 MB in bytes
+
+  let photosToSend = [];
+  let documentsToSend = [];
+
+  // Separate photos and documents, checking photo size
+  for (const file of mediaFiles) {
+    if (file.type === "photo") {
+      try {
+        const stats = fs.statSync(file.path);
+        if (stats.size > PHOTO_MAX_SIZE) {
+          console.warn(
+            `⚠️ Photo ${file.path} (${stats.size} bytes) is too large for a photo, sending as document.`
+          );
+          documentsToSend.push({
+            type: "document",
+            path: file.path,
+            caption: `🖼️ <b>Gambar</b> - ${file.caption.replace(
+              /<\/?b>/g,
+              ""
+            )} (Ukuran Besar)`, // Modify caption for document
+          });
+        } else {
+          photosToSend.push(file);
+        }
+      } catch (err) {
+        console.error(`❌ Error getting file stats for ${file.path}:`, err);
+        documentsToSend.push({
+          type: "document",
+          path: file.path,
+          caption: `🖼️ <b>Gambar</b> - ${file.caption.replace(
+            /<\/?b>/g,
+            ""
+          )} (Gagal Cek Ukuran)`,
+        });
+      }
+    } else {
+      documentsToSend.push(file);
+    }
+  }
 
   try {
     let mainCaption = message;
@@ -1485,16 +1567,16 @@ async function sendMediaToChat(message, mediaFiles, user, chatId) {
     }
 
     // Send photos
-    if (photos.length > 0) {
-      if (photos.length === 1) {
+    if (photosToSend.length > 0) {
+      if (photosToSend.length === 1) {
         // Send single photo
-        await bot.sendPhoto(chatId, photos[0].path, {
+        await bot.sendPhoto(chatId, photosToSend[0].path, {
           caption: mainCaption, // Use mainCaption for the single photo
           parse_mode: "HTML",
         });
       } else {
         // Send multiple photos as a media group
-        const photoGroup = photos.map((photo, index) => ({
+        const photoGroup = photosToSend.map((photo, index) => ({
           type: "photo",
           media: { source: photo.path },
           caption:
@@ -1513,12 +1595,12 @@ async function sendMediaToChat(message, mediaFiles, user, chatId) {
     }
 
     // Send documents individually
-    if (documents.length > 0) {
+    if (documentsToSend.length > 0) {
       console.log(
-        `📨 Sending ${documents.length} documents individually to chat:`,
+        `📨 Sending ${documentsToSend.length} documents individually to chat:`,
         chatId
       );
-      for (const doc of documents) {
+      for (const doc of documentsToSend) {
         try {
           await bot.sendDocument(chatId, doc.path, {
             caption: doc.caption, // Documents always use their specific captions
@@ -1545,8 +1627,8 @@ async function sendMediaToChat(message, mediaFiles, user, chatId) {
     }
 
     if (
-      photos.length === 0 &&
-      documents.length === 0 &&
+      photosToSend.length === 0 &&
+      documentsToSend.length === 0 &&
       mainCaption.length > captionLimit
     ) {
       // This condition ensures the message is always sent if no media was present
