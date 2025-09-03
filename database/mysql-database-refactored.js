@@ -124,12 +124,34 @@ class DatabaseManager {
     try {
       console.log("🏗️ Setting up database schema...");
 
+      // First, try to update existing users table status enum
+      try {
+        // Check if table exists first
+        const [tables] = await connection.execute(`
+          SELECT TABLE_NAME FROM information_schema.TABLES 
+          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users'
+        `);
+        
+        if (tables.length > 0) {
+          await connection.execute(`
+            ALTER TABLE users MODIFY COLUMN status 
+            ENUM('PENDING', 'LOLOS', 'DITOLAK', 'PENDING_BOT_APPROVAL', 'PENDING_TERIMA', 'PENDING_TOLAK') 
+            DEFAULT 'PENDING'
+          `);
+          console.log("✅ Updated existing users table status enum");
+        } else {
+          console.log("📝 Users table doesn't exist, will create new one");
+        }
+      } catch (error) {
+        console.log("📝 Could not update existing table:", error.message);
+      }
+
       // Create users table with enhanced structure
       await connection.execute(`
         CREATE TABLE IF NOT EXISTS users (
           id INT PRIMARY KEY AUTO_INCREMENT,
           ticket VARCHAR(50) UNIQUE NOT NULL,
-          status ENUM('PENDING', 'LOLOS', 'DITOLAK', 'PENDING_BOT_APPROVAL') DEFAULT 'PENDING',
+          status ENUM('PENDING', 'LOLOS', 'DITOLAK', 'PENDING_BOT_APPROVAL', 'PENDING_TERIMA', 'PENDING_TOLAK') DEFAULT 'PENDING',
           
           -- Personal Information
           nama_lengkap VARCHAR(100) NOT NULL,

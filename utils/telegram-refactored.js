@@ -949,47 +949,91 @@ Butuh bantuan? Hubungi administrator.
         }
 
         const user = users[0];
+        const adminName = "TELEGRAM_ADMIN";
+        let statusMessage = "";
+        let actionType = "";
 
-        if (user.status === "LOLOS") {
-          await this.bot.sendMessage(
-            chatId,
-            `ℹ️ <b>Pendaftar sudah diterima</b>\n\nNama: ${user.nama_lengkap}\nTiket: <code>${ticket}</code>`,
-            { parse_mode: "HTML" }
-          );
-          return;
+        // Enhanced logic based on current status
+        switch (user.status) {
+          case "PENDING":
+          case "PENDING_TOLAK":
+            // Mark for acceptance (add to queue)
+            await connection.execute(
+              "UPDATE users SET status = ?, updated_by = ?, updated_at = NOW() WHERE ticket = ?",
+              ["PENDING_TERIMA", adminName, ticket]
+            );
+            statusMessage = "🟡 Menunggu Push (Diterima)";
+            actionType = "DITANDAI UNTUK DITERIMA";
+            break;
+
+          case "PENDING_TERIMA":
+            // Already marked for acceptance
+            await this.bot.sendMessage(
+              chatId,
+              `ℹ️ <b>Pendaftar sudah ditandai untuk diterima</b>\n\nNama: ${user.nama_lengkap}\nTiket: <code>${ticket}</code>\n\n💡 Gunakan <code>/push</code> untuk memproses atau <code>/tolak</code> untuk mengubah keputusan.`,
+              { parse_mode: "HTML" }
+            );
+            return;
+
+          case "LOLOS":
+            // Already accepted - offer to update or confirm
+            await this.bot.sendMessage(
+              chatId,
+              `✅ <b>Pendaftar sudah LOLOS sebelumnya</b>\n\nNama: ${user.nama_lengkap}\nTiket: <code>${ticket}</code>\n\n💡 Status tidak berubah. Gunakan <code>/tolak</code> jika ingin mengubah keputusan.`,
+              { parse_mode: "HTML" }
+            );
+            return;
+
+          case "DITOLAK":
+            // Previously rejected, now mark for acceptance (can be changed after push)
+            await connection.execute(
+              "UPDATE users SET status = ?, updated_by = ?, updated_at = NOW() WHERE ticket = ?",
+              ["PENDING_TERIMA", adminName, ticket]
+            );
+            statusMessage = "🟡 Menunggu Push (Diterima) - ⚠️ Perubahan dari DITOLAK";
+            actionType = "DIUBAH KE DITERIMA";
+            break;
+
+          default:
+            await connection.execute(
+              "UPDATE users SET status = ?, updated_by = ?, updated_at = NOW() WHERE ticket = ?",
+              ["PENDING_TERIMA", adminName, ticket]
+            );
+            statusMessage = "🟡 Menunggu Push (Diterima)";
+            actionType = "DITANDAI UNTUK DITERIMA";
         }
 
-        if (user.status === "PENDING_TERIMA") {
-          await this.bot.sendMessage(
-            chatId,
-            `ℹ️ <b>Pendaftar sudah dalam antrian terima</b>\n\nNama: ${user.nama_lengkap}\nTiket: <code>${ticket}</code>\n\nGunakan <code>/push</code> untuk memproses semua antrian.`,
-            { parse_mode: "HTML" }
-          );
-          return;
-        }
-
-        // Update status to PENDING_TERIMA (waiting for push)
-        await connection.execute(
-          "UPDATE users SET status = ?, updated_at = NOW() WHERE ticket = ?",
-          ["PENDING_TERIMA", ticket]
-        );
-
-        const pendingMessage = `
-✅ <b>PENDAFTAR MASUK ANTRIAN TERIMA</b>
+        const acceptMessage = `
+✅ <b>PENDAFTAR ${actionType}</b>
 
 👤 <b>Nama:</b> ${user.nama_lengkap}
 🎫 <b>Tiket:</b> <code>${ticket}</code>
 🏫 <b>Kelas:</b> ${user.kelas} - ${user.jurusan}
-📊 <b>Status:</b> 🔄 ANTRIAN TERIMA
+📊 <b>Status:</b> ${statusMessage}
 📅 <b>Diproses:</b> ${this.formatDate(new Date())}
 
-⏳ <b>Menunggu push approval...</b>
-Gunakan <code>/push</code> untuk memproses semua antrian.
+💡 <b>Langkah selanjutnya:</b> Gunakan <code>/push</code> untuk memfinalisasi semua keputusan.
         `.trim();
 
-        await this.bot.sendMessage(chatId, pendingMessage, {
+        await this.bot.sendMessage(chatId, acceptMessage, {
           parse_mode: "HTML",
         });
+
+        // Log the action
+        const logParams = [
+          user.id,
+          ticket, 
+          "UPDATE",
+          user.status,
+          "PENDING_TERIMA",
+          `Marked for acceptance by ${adminName}. Previous status: ${user.status}`,
+          adminName,
+          adminName
+        ];
+        await connection.execute(
+          "INSERT INTO admin_logs (user_id, ticket, action, previous_status, new_status, reason, admin_name, admin_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+          logParams
+        );
       } finally {
         connection.release();
       }
@@ -1029,48 +1073,82 @@ Gunakan <code>/push</code> untuk memproses semua antrian.
         }
 
         const user = users[0];
+        const adminName = "TELEGRAM_ADMIN";
+        let statusMessage = "";
+        let actionType = "";
 
-        if (user.status === "DITOLAK") {
-          await this.bot.sendMessage(
-            chatId,
-            `ℹ️ <b>Pendaftar sudah ditolak sebelumnya</b>\n\nNama: ${user.nama_lengkap}\nTiket: <code>${ticket}</code>`,
-            { parse_mode: "HTML" }
-          );
-          return;
+        // Enhanced logic based on current status
+        switch (user.status) {
+          case "PENDING":
+          case "PENDING_TERIMA":
+            // Mark for rejection (add to queue)
+            await connection.execute(
+              "UPDATE users SET status = ?, updated_by = ?, updated_at = NOW() WHERE ticket = ?",
+              ["PENDING_TOLAK", adminName, ticket]
+            );
+            statusMessage = "🟠 Menunggu Push (Ditolak)";
+            actionType = "DITANDAI UNTUK DITOLAK";
+            break;
+
+          case "PENDING_TOLAK":
+            // Already marked for rejection
+            await this.bot.sendMessage(
+              chatId,
+              `ℹ️ <b>Pendaftar sudah ditandai untuk ditolak</b>\n\nNama: ${user.nama_lengkap}\nTiket: <code>${ticket}</code>\n\n💡 Gunakan <code>/push</code> untuk memproses atau <code>/terima</code> untuk mengubah keputusan.`,
+              { parse_mode: "HTML" }
+            );
+            return;
+
+          case "DITOLAK":
+            // Already rejected - offer to update or confirm
+            await this.bot.sendMessage(
+              chatId,
+              `❌ <b>Pendaftar sudah DITOLAK sebelumnya</b>\n\nNama: ${user.nama_lengkap}\nTiket: <code>${ticket}</code>\n\n💡 Status tidak berubah. Gunakan <code>/terima</code> jika ingin mengubah keputusan.`,
+              { parse_mode: "HTML" }
+            );
+            return;
+
+          case "LOLOS":
+            // Previously accepted, now mark for rejection (can be changed after push)
+            await connection.execute(
+              "UPDATE users SET status = ?, updated_by = ?, updated_at = NOW() WHERE ticket = ?",
+              ["PENDING_TOLAK", adminName, ticket]
+            );
+            statusMessage = "🟠 Menunggu Push (Ditolak) - ⚠️ Perubahan dari LOLOS";
+            actionType = "DIUBAH KE DITOLAK";
+            break;
+
+          default:
+            await connection.execute(
+              "UPDATE users SET status = ?, updated_by = ?, updated_at = NOW() WHERE ticket = ?",
+              ["PENDING_TOLAK", adminName, ticket]
+            );
+            statusMessage = "🟠 Menunggu Push (Ditolak)";
+            actionType = "DITANDAI UNTUK DITOLAK";
         }
 
-        if (user.status === "PENDING_TOLAK") {
-          await this.bot.sendMessage(
-            chatId,
-            `ℹ️ <b>Pendaftar sudah dalam antrian tolak</b>\n\nNama: ${user.nama_lengkap}\nTiket: <code>${ticket}</code>\n\nGunakan <code>/push</code> untuk memproses semua antrian.`,
-            { parse_mode: "HTML" }
-          );
-          return;
-        }
-
-        // Store rejection reason in a new field or use existing field
-        await connection.execute(
-          "UPDATE users SET status = ?, keterangan = ?, updated_at = NOW() WHERE ticket = ?",
-          ["PENDING_TOLAK", reason, ticket]
-        );
-
-        const pendingMessage = `
-❌ <b>PENDAFTAR MASUK ANTRIAN TOLAK</b>
+        const rejectMessage = `
+❌ <b>PENDAFTAR ${actionType}</b>
 
 👤 <b>Nama:</b> ${user.nama_lengkap}
 🎫 <b>Tiket:</b> <code>${ticket}</code>
 🏫 <b>Kelas:</b> ${user.kelas} - ${user.jurusan}
-📊 <b>Status:</b> 🔄 ANTRIAN TOLAK
+📊 <b>Status:</b> ${statusMessage}
 💬 <b>Alasan:</b> ${reason}
 📅 <b>Diproses:</b> ${this.formatDate(new Date())}
 
-⏳ <b>Menunggu push approval...</b>
-Gunakan <code>/push</code> untuk memproses semua antrian.
+💡 <b>Langkah selanjutnya:</b> Gunakan <code>/push</code> untuk memfinalisasi semua keputusan.
         `.trim();
 
-        await this.bot.sendMessage(chatId, pendingMessage, {
+        await this.bot.sendMessage(chatId, rejectMessage, {
           parse_mode: "HTML",
         });
+
+        // Log the rejection reason
+        await connection.execute(
+          "INSERT INTO admin_logs (user_id, ticket, action, previous_status, new_status, reason, admin_name, admin_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+          [user.id, ticket, "UPDATE", user.status, "PENDING_TOLAK", `Marked for rejection by ${adminName}. Reason: ${reason}. Previous status: ${user.status}`, adminName, adminName]
+        );
       } finally {
         connection.release();
       }
@@ -1083,21 +1161,33 @@ Gunakan <code>/push</code> untuk memproses semua antrian.
     }
   }
 
-  // NEW PUSH COMMAND - Process all pending approvals
+  // ENHANCED PUSH COMMAND - Process all pending approvals with detailed logging
   async handlePushCommand(chatId) {
     try {
       console.log("🚀 Processing all pending approvals...");
 
       const connection = await getConnection();
       try {
-        // Get all pending approvals
+        // Get all pending approvals with detailed info
         const [pendingAccepts] = await connection.execute(
-          "SELECT * FROM users WHERE status = ?",
+          "SELECT * FROM users WHERE status = ? ORDER BY updated_at ASC",
           ["PENDING_TERIMA"]
         );
 
         const [pendingRejects] = await connection.execute(
-          "SELECT * FROM users WHERE status = ?",
+          `SELECT u.*, 
+                  COALESCE(al.reason, 'Tidak memenuhi syarat') as rejection_reason
+           FROM users u 
+           LEFT JOIN admin_logs al ON u.ticket = al.ticket 
+               AND al.action = 'UPDATE' 
+               AND al.new_status = 'PENDING_TOLAK'
+               AND al.created_at = (
+                   SELECT MAX(created_at) 
+                   FROM admin_logs 
+                   WHERE ticket = u.ticket AND action = 'UPDATE' AND new_status = 'PENDING_TOLAK'
+               )
+           WHERE u.status = ?
+           ORDER BY u.updated_at ASC`,
           ["PENDING_TOLAK"]
         );
 
@@ -1106,18 +1196,40 @@ Gunakan <code>/push</code> untuk memproses semua antrian.
         if (totalPending === 0) {
           await this.bot.sendMessage(
             chatId,
-            `ℹ️ <b>Tidak ada antrian untuk diproses</b>\n\nSemua pendaftar sudah diproses atau belum ada yang menunggu approval.`,
+            `ℹ️ <b>Tidak ada antrian untuk diproses</b>\n\n` +
+            `📋 Semua pendaftar sudah diproses atau belum ada yang menunggu approval.\n\n` +
+            `💡 Gunakan <code>/terima TIKET</code> atau <code>/tolak TIKET alasan</code> untuk menandai pendaftar.`,
             { parse_mode: "HTML" }
           );
           return;
         }
 
+        // Show processing confirmation
+        await this.bot.sendMessage(
+          chatId,
+          `🚀 <b>MEMPROSES PUSH APPROVAL</b>\n\n` +
+          `📊 <b>Ringkasan:</b>\n` +
+          `┣ ✅ Akan diterima: <b>${pendingAccepts.length}</b> pendaftar\n` +
+          `┣ ❌ Akan ditolak: <b>${pendingRejects.length}</b> pendaftar\n` +
+          `┗ 📈 Total diproses: <b>${totalPending}</b>\n\n` +
+          `⏳ <b>Sedang memproses...</b>`,
+          { parse_mode: "HTML" }
+        );
+
+        const adminName = "TELEGRAM_ADMIN";
+
         // Process acceptances
         let acceptedCount = 0;
         for (const user of pendingAccepts) {
           await connection.execute(
-            "UPDATE users SET status = ?, updated_at = NOW() WHERE id = ?",
-            ["LOLOS", user.id]
+            "UPDATE users SET status = ?, updated_by = ?, updated_at = NOW() WHERE id = ?",
+            ["LOLOS", adminName, user.id]
+          );
+          
+          // Log final acceptance
+          await connection.execute(
+            "INSERT INTO admin_logs (user_id, ticket, action, previous_status, new_status, reason, admin_name, admin_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            [user.id, user.ticket, "APPROVE", "PENDING_TERIMA", "LOLOS", `Final acceptance via push by ${adminName}`, adminName, adminName]
           );
           acceptedCount++;
         }
@@ -1126,45 +1238,45 @@ Gunakan <code>/push</code> untuk memproses semua antrian.
         let rejectedCount = 0;
         for (const user of pendingRejects) {
           await connection.execute(
-            "UPDATE users SET status = ?, updated_at = NOW() WHERE id = ?",
-            ["DITOLAK", user.id]
+            "UPDATE users SET status = ?, updated_by = ?, updated_at = NOW() WHERE id = ?",
+            ["DITOLAK", adminName, user.id]
+          );
+          
+          // Log final rejection
+          await connection.execute(
+            "INSERT INTO admin_logs (user_id, ticket, action, previous_status, new_status, reason, admin_name, admin_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            [user.id, user.ticket, "REJECT", "PENDING_TOLAK", "DITOLAK", `Final rejection via push by ${adminName}. Reason: ${user.rejection_reason || 'Tidak memenuhi syarat'}`, adminName, adminName]
           );
           rejectedCount++;
         }
 
-        // Create detailed summary
-        let summaryMessage = `🚀 <b>PUSH APPROVAL BERHASIL</b>\n\n`;
+        // Create detailed summary message
+        let summaryMessage = `🎉 <b>PUSH APPROVAL SELESAI</b>\n\n`;
         summaryMessage += `📊 <b>RINGKASAN PEMROSESAN</b>\n`;
         summaryMessage += `┣ ✅ Diterima: <b>${acceptedCount}</b> pendaftar\n`;
         summaryMessage += `┣ ❌ Ditolak: <b>${rejectedCount}</b> pendaftar\n`;
         summaryMessage += `┗ 📈 Total diproses: <b>${totalPending}</b>\n\n`;
 
         if (acceptedCount > 0) {
-          summaryMessage += `✅ <b>DITERIMA:</b>\n`;
+          summaryMessage += `✅ <b>DITERIMA (${acceptedCount}):</b>\n`;
           pendingAccepts.forEach((user, index) => {
-            summaryMessage += `${index + 1}. ${user.nama_lengkap} (<code>${
-              user.ticket
-            }</code>)\n`;
+            summaryMessage += `${index + 1}. ${user.nama_lengkap} (<code>${user.ticket}</code>)\n`;
           });
           summaryMessage += "\n";
         }
 
         if (rejectedCount > 0) {
-          summaryMessage += `❌ <b>DITOLAK:</b>\n`;
+          summaryMessage += `❌ <b>DITOLAK (${rejectedCount}):</b>\n`;
           pendingRejects.forEach((user, index) => {
-            summaryMessage += `${index + 1}. ${user.nama_lengkap} (<code>${
-              user.ticket
-            }</code>)\n`;
-            summaryMessage += `   💬 ${
-              user.keterangan || "Tidak memenuhi syarat"
-            }\n`;
+            summaryMessage += `${index + 1}. ${user.nama_lengkap} (<code>${user.ticket}</code>)\n`;
+            const reason = user.rejection_reason || "Tidak memenuhi syarat";
+            summaryMessage += `   💬 ${reason.replace('Marked for rejection by TELEGRAM_ADMIN. Reason: ', '')}\n`;
           });
+          summaryMessage += "\n";
         }
 
-        summaryMessage += `\n📅 <b>Diproses:</b> ${this.formatDate(
-          new Date()
-        )}\n`;
-        summaryMessage += `🎉 Semua approval telah berhasil diproses!`;
+        summaryMessage += `📅 <b>Diproses:</b> ${this.formatDate(new Date())}\n`;
+        summaryMessage += `💡 <b>Catatan:</b> Status dapat diubah dengan menggunakan <code>/terima</code> atau <code>/tolak</code> kemudian <code>/push</code> lagi.`;
 
         // Split message if too long
         if (summaryMessage.length > 4000) {
@@ -1178,6 +1290,7 @@ Gunakan <code>/push</code> untuk memproses semua antrian.
             parse_mode: "HTML",
           });
         }
+
       } finally {
         connection.release();
       }
