@@ -3,22 +3,11 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 const { body, validationResult } = require("express-validator");
-const rateLimit = require("express-rate-limit");
 const QRCode = require("qrcode");
 const { getConnection } = require("../database/mysql-database");
 const { sendTelegramNotification } = require("../utils/telegram");
 
 const router = express.Router();
-
-// Rate limiting
-const registerLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Increased limit to 100 requests per 15 minutes per IP to allow for more concurrent registrations
-  message: {
-    success: false,
-    message: "Terlalu banyak percobaan pendaftaran. Coba lagi dalam 15 menit.",
-  },
-});
 
 // Helper function to generate ticket
 function generateTicket() {
@@ -199,9 +188,20 @@ router.get("/", (req, res) => {
 // POST /api/register - Submit registration
 router.post(
   "/register",
-  registerLimiter,
-  upload.any(),
-  validateRegistration,
+  upload.any(), // Multer middleware for file uploads
+  (err, req, res, next) => {
+    // Multer error handler
+    if (err instanceof multer.MulterError) {
+      console.error("Multer error:", err.message);
+      return res.status(400).json({ success: false, message: err.message });
+    } else if (err) {
+      // Other errors from fileFilter, etc.
+      console.error("File upload error:", err.message);
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    next();
+  },
+  validateRegistration, // Validation middleware
   async (req, res) => {
     try {
       console.log("=== REGISTRATION REQUEST ===");

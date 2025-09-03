@@ -2046,7 +2046,23 @@
             });
 
             console.log("Response status:", response.status);
-            const result = await response.json();
+            let result;
+            if (response.ok) {
+              result = await response.json();
+            } else {
+              // Attempt to parse as JSON first for error messages
+              try {
+                result = await response.json();
+              } catch (jsonError) {
+                // If it's not JSON, it might be HTML or plain text
+                const errorText = await response.text();
+                console.error("Server returned non-JSON error:", errorText);
+                throw new Error(
+                  `Server error: ${response.status} ${response.statusText}. Please try again. (Details: ${errorText.substring(0, 100)}...)`
+                );
+              }
+            }
+
             console.log("Response data:", result);
 
             if (result.success) {
@@ -2057,6 +2073,7 @@
                 .getElementById("successModal")
                 .classList.remove("hidden");
             } else {
+              // If response was not ok, but parsed as JSON, throw its message
               throw new Error(result.message || "Pendaftaran gagal");
             }
           } catch (error) {
