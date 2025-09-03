@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pendaftaran OSIS 2025/2026</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="universal-form-handler.js"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -2032,8 +2031,47 @@
           document.getElementById("loadingModal").classList.remove("hidden");
 
           try {
-            // Use universal form handler
-            const result = await UniversalFormHandler.submitRegistration();
+            // Create FormData from form
+            const formData = new FormData(this);
+            
+            // Debug: log form data
+            console.log("=== FORM SUBMISSION DEBUG ===");
+            for (let [key, value] of formData.entries()) {
+              console.log(`${key}: ${value}`);
+            }
+            
+            // Use fetch with proper error handling
+            const response = await fetch("/api/register", {
+              method: "POST",
+              body: formData
+            });
+
+            console.log("Response status:", response.status);
+            
+            let result;
+            if (response.ok) {
+              result = await response.json();
+            } else {
+              // Clone response untuk multiple reads
+              const clonedResponse = response.clone();
+              try {
+                result = await response.json();
+              } catch (jsonError) {
+                const errorText = await clonedResponse.text();
+                console.error("Server returned non-JSON error:", errorText);
+                throw new Error(`Server error: ${response.status} ${response.statusText}`);
+              }
+            }
+
+            console.log("Response data:", result);
+
+            if (result.success) {
+              document.getElementById("loadingModal").classList.add("hidden");
+              document.getElementById("ticketNumber").textContent = result.ticket;
+              document.getElementById("successModal").classList.remove("hidden");
+            } else {
+              throw new Error(result.message || "Pendaftaran gagal");
+            }
             
           } catch (error) {
             console.error("Submission failed:", error);
