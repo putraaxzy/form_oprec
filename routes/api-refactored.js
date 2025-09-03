@@ -8,7 +8,7 @@ const { getConnection } = require("../database/mysql-database-refactored");
 const { sendTelegramNotification } = require("../utils/telegram-refactored");
 const {
   validateRegistration,
-  validateTicketCheck, 
+  validateTicketCheck,
   validateQRCheck,
   handleValidationErrors,
 } = require("../middleware/validators-minimal");
@@ -26,7 +26,7 @@ class FileUploadManager {
     return multer.diskStorage({
       destination: async (req, file, cb) => {
         let uploadDir;
-        
+
         // Determine upload directory based on fieldname
         if (file.fieldname === "foto") {
           uploadDir = path.join(__dirname, "..", "uploads", "photos");
@@ -45,7 +45,7 @@ class FileUploadManager {
           cb(error);
         }
       },
-      
+
       filename: (req, file, cb) => {
         // Create descriptive filename with type prefix
         let prefix = "file";
@@ -62,8 +62,10 @@ class FileUploadManager {
         const randomNum = Math.round(Math.random() * 1e9);
         const extension = path.extname(file.originalname);
         const uniqueName = `${prefix}-${timestamp}-${randomNum}${extension}`;
-        
-        console.log(`📁 Generated filename: ${uniqueName} for field: ${file.fieldname}`);
+
+        console.log(
+          `📁 Generated filename: ${uniqueName} for field: ${file.fieldname}`
+        );
         cb(null, uniqueName);
       },
     });
@@ -73,35 +75,54 @@ class FileUploadManager {
     return multer({
       storage: this.storage,
       limits: {
-        fileSize: 50 * 1024 * 1024, // 50MB max file size
-        files: 50, // max 50 files per request
+        fileSize: 20 * 1024 * 1024, // Reduced from 50MB to 20MB for faster processing
+        files: 20, // Reduced from 50 to 20 files per request
+        fieldSize: 10 * 1024 * 1024, // 10MB max field size
+        fieldNameSize: 100, // 100 bytes max field name
+        fields: 100, // max 100 fields
       },
       fileFilter: (req, file, cb) => {
-        console.log(`📤 File upload attempt - Field: ${file.fieldname}, Name: ${file.originalname}, Type: ${file.mimetype}`);
+        console.log(
+          `📤 File upload attempt - Field: ${file.fieldname}, Name: ${file.originalname}, Type: ${file.mimetype}`
+        );
 
         // Photo validation (stricter for photos)
         if (file.fieldname === "foto") {
           const allowedTypes = /jpeg|jpg|png/;
-          const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+          const extname = allowedTypes.test(
+            path.extname(file.originalname).toLowerCase()
+          );
           const mimetype = /image\/(jpeg|jpg|png)/.test(file.mimetype);
 
           if (mimetype && extname) {
             return cb(null, true);
           } else {
-            return cb(new Error("Hanya file gambar (JPG, JPEG, PNG) yang diizinkan untuk foto"));
+            return cb(
+              new Error(
+                "Hanya file gambar (JPG, JPEG, PNG) yang diizinkan untuk foto"
+              )
+            );
           }
         }
-        
+
         // Certificate validation (allow PDF and images)
         else if (file.fieldname.includes("sertifikat")) {
           const allowedTypes = /pdf|jpeg|jpg|png/;
-          const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-          const mimetype = /application\/pdf|image\/(jpeg|jpg|png)/.test(file.mimetype);
+          const extname = allowedTypes.test(
+            path.extname(file.originalname).toLowerCase()
+          );
+          const mimetype = /application\/pdf|image\/(jpeg|jpg|png)/.test(
+            file.mimetype
+          );
 
           if (mimetype && extname) {
             return cb(null, true);
           } else {
-            return cb(new Error("Hanya file PDF, JPG, JPEG, PNG yang diizinkan untuk sertifikat"));
+            return cb(
+              new Error(
+                "Hanya file PDF, JPG, JPEG, PNG yang diizinkan untuk sertifikat"
+              )
+            );
           }
         }
 
@@ -130,7 +151,8 @@ class RegistrationProcessor {
   // Generate QR code for WhatsApp group
   async generateQRCode(data) {
     try {
-      const whatsappLink = data.whatsapp_link || process.env.DEFAULT_WHATSAPP_GROUP_LINK;
+      const whatsappLink =
+        data.whatsapp_link || process.env.DEFAULT_WHATSAPP_GROUP_LINK;
       if (!whatsappLink) {
         throw new Error("WhatsApp link is missing for QR code generation.");
       }
@@ -154,7 +176,7 @@ class RegistrationProcessor {
   // Enhanced file processing with better error handling
   processUploadedFiles(files) {
     console.log(`📁 Processing ${files ? files.length : 0} uploaded files...`);
-    
+
     const uploadedFiles = {
       foto: null,
       organisasi_sertifikat: {},
@@ -168,20 +190,22 @@ class RegistrationProcessor {
 
     for (const file of files) {
       console.log(`📄 Processing file: ${file.fieldname} -> ${file.filename}`);
-      
+
       if (file.fieldname === "foto") {
         uploadedFiles.foto = file.filename;
         console.log(`✅ Photo processed: ${file.filename}`);
-      }
-      else if (file.fieldname.includes("organisasi_sertifikat")) {
+      } else if (file.fieldname.includes("organisasi_sertifikat")) {
         const match = file.fieldname.match(/\[(\d+)\]/);
-        const index = match ? parseInt(match[1]) : Object.keys(uploadedFiles.organisasi_sertifikat).length;
+        const index = match
+          ? parseInt(match[1])
+          : Object.keys(uploadedFiles.organisasi_sertifikat).length;
         uploadedFiles.organisasi_sertifikat[index] = file.filename;
         console.log(`✅ Organization certificate ${index}: ${file.filename}`);
-      }
-      else if (file.fieldname.includes("prestasi_sertifikat")) {
+      } else if (file.fieldname.includes("prestasi_sertifikat")) {
         const match = file.fieldname.match(/\[(\d+)\]/);
-        const index = match ? parseInt(match[1]) : Object.keys(uploadedFiles.prestasi_sertifikat).length;
+        const index = match
+          ? parseInt(match[1])
+          : Object.keys(uploadedFiles.prestasi_sertifikat).length;
         uploadedFiles.prestasi_sertifikat[index] = file.filename;
         console.log(`✅ Achievement certificate ${index}: ${file.filename}`);
       }
@@ -193,22 +217,22 @@ class RegistrationProcessor {
   // Ensure array fields are properly formatted
   ensureArray(value) {
     if (Array.isArray(value)) return value;
-    if (value === undefined || value === null || value === '') return [];
+    if (value === undefined || value === null || value === "") return [];
     return [value];
   }
 
   // Process form data with validation
   processFormData(body) {
     const processed = { ...body };
-    
+
     // Process array fields
     processed.organisasi_nama = this.ensureArray(body.organisasi_nama);
-    processed.organisasi_jabatan = this.ensureArray(body.organisasi_jabatan); 
+    processed.organisasi_jabatan = this.ensureArray(body.organisasi_jabatan);
     processed.organisasi_tahun = this.ensureArray(body.organisasi_tahun);
     processed.prestasi_nama = this.ensureArray(body.prestasi_nama);
     processed.prestasi_tingkat = this.ensureArray(body.prestasi_tingkat);
     processed.prestasi_tahun = this.ensureArray(body.prestasi_tahun);
-    
+
     // Process divisi
     processed.divisi = this.ensureArray(body.divisi);
 
@@ -225,7 +249,9 @@ class RegistrationProcessor {
       );
 
       if (existingUsers.length > 0) {
-        throw new Error("Nama sudah terdaftar dalam sistem. Harap menghubungi narahubung untuk informasi lebih lanjut.");
+        throw new Error(
+          "Nama sudah terdaftar dalam sistem. Harap menghubungi narahubung untuk informasi lebih lanjut."
+        );
       }
     } finally {
       connection.release();
@@ -235,34 +261,36 @@ class RegistrationProcessor {
   // Save user data to database
   async saveUserData(userData, uploadedFiles, ticket) {
     const connection = await getConnection();
-    
+
     try {
       await connection.beginTransaction();
+
+      // Helper function to convert undefined to null
+      const safeValue = (value) => value === undefined ? null : value;
 
       // Insert main user data
       const [userResult] = await connection.execute(
         `INSERT INTO users (
           ticket, nama_lengkap, nama_panggilan, kelas, jurusan, 
           tempat_lahir, tanggal_lahir, alamat, agama, jenis_kelamin,
-          nomor_telepon, email, hobi, motto, foto_path, motivasi
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          nomor_telepon, hobi, motto, foto_path, motivasi
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           ticket,
-          userData.nama_lengkap,
-          userData.nama_panggilan,
-          userData.kelas,
-          userData.jurusan,
-          userData.tempat_lahir,
-          userData.tanggal_lahir,
-          userData.alamat,
-          userData.agama,
-          userData.jenis_kelamin,
-          userData.nomor_telepon,
-          userData.email,
-          userData.hobi,
-          userData.motto,
-          uploadedFiles.foto,
-          userData.motivasi,
+          safeValue(userData.nama_lengkap),
+          safeValue(userData.nama_panggilan),
+          safeValue(userData.kelas),
+          safeValue(userData.jurusan),
+          safeValue(userData.tempat_lahir),
+          safeValue(userData.tanggal_lahir),
+          safeValue(userData.alamat),
+          safeValue(userData.agama),
+          safeValue(userData.jenis_kelamin),
+          safeValue(userData.nomor_telepon),
+          safeValue(userData.hobi),
+          safeValue(userData.motto),
+          safeValue(uploadedFiles.foto),
+          safeValue(userData.motivasi),
         ]
       );
 
@@ -272,19 +300,27 @@ class RegistrationProcessor {
       // Insert organization data
       if (userData.organisasi_nama && userData.organisasi_nama.length > 0) {
         for (let i = 0; i < userData.organisasi_nama.length; i++) {
-          if (userData.organisasi_nama[i] && userData.organisasi_nama[i].trim()) {
-            const sertifikatPath = uploadedFiles.organisasi_sertifikat[i] || null;
+          if (
+            userData.organisasi_nama[i] &&
+            userData.organisasi_nama[i].trim()
+          ) {
+            const sertifikatPath =
+              uploadedFiles.organisasi_sertifikat[i] || null;
             await connection.execute(
               "INSERT INTO organisasi (user_id, nama_organisasi, jabatan, tahun, sertifikat_path) VALUES (?, ?, ?, ?, ?)",
               [
                 userId,
-                userData.organisasi_nama[i],
-                userData.organisasi_jabatan[i] || "",
-                userData.organisasi_tahun[i] || "",
-                sertifikatPath,
+                safeValue(userData.organisasi_nama[i]),
+                safeValue(userData.organisasi_jabatan[i] || ""),
+                safeValue(userData.organisasi_tahun[i] || ""),
+                safeValue(sertifikatPath),
               ]
             );
-            console.log(`✅ Organization ${i + 1} saved with certificate: ${sertifikatPath || 'none'}`);
+            console.log(
+              `✅ Organization ${i + 1} saved with certificate: ${
+                sertifikatPath || "none"
+              }`
+            );
           }
         }
       }
@@ -298,13 +334,17 @@ class RegistrationProcessor {
               "INSERT INTO prestasi (user_id, nama_prestasi, tingkat, tahun, sertifikat_path) VALUES (?, ?, ?, ?, ?)",
               [
                 userId,
-                userData.prestasi_nama[i],
-                userData.prestasi_tingkat[i] || "",
-                userData.prestasi_tahun[i] || "",
-                sertifikatPath,
+                safeValue(userData.prestasi_nama[i]),
+                safeValue(userData.prestasi_tingkat[i] || ""),
+                safeValue(userData.prestasi_tahun[i] || ""),
+                safeValue(sertifikatPath),
               ]
             );
-            console.log(`✅ Achievement ${i + 1} saved with certificate: ${sertifikatPath || 'none'}`);
+            console.log(
+              `✅ Achievement ${i + 1} saved with certificate: ${
+                sertifikatPath || "none"
+              }`
+            );
           }
         }
       }
@@ -317,7 +357,7 @@ class RegistrationProcessor {
           if (alasan && alasan.trim()) {
             await connection.execute(
               "INSERT INTO divisi (user_id, nama_divisi, alasan) VALUES (?, ?, ?)",
-              [userId, div, alasan]
+              [userId, safeValue(div), safeValue(alasan)]
             );
             console.log(`✅ Division ${div} saved with reason`);
           }
@@ -326,7 +366,7 @@ class RegistrationProcessor {
 
       await connection.commit();
       console.log("✅ All data committed successfully");
-      
+
       return userId;
     } catch (error) {
       await connection.rollback();
@@ -342,11 +382,11 @@ class RegistrationProcessor {
     // Convert object indices to arrays for compatibility
     const organisasiSertArray = Object.keys(uploadedFiles.organisasi_sertifikat)
       .sort((a, b) => parseInt(a) - parseInt(b))
-      .map(key => uploadedFiles.organisasi_sertifikat[key]);
-      
+      .map((key) => uploadedFiles.organisasi_sertifikat[key]);
+
     const prestasiSertArray = Object.keys(uploadedFiles.prestasi_sertifikat)
       .sort((a, b) => parseInt(a) - parseInt(b))
-      .map(key => uploadedFiles.prestasi_sertifikat[key]);
+      .map((key) => uploadedFiles.prestasi_sertifikat[key]);
 
     const telegramData = {
       // Basic info
@@ -364,7 +404,7 @@ class RegistrationProcessor {
       hobi: userData.hobi,
       motto: userData.motto,
       motivasi: userData.motivasi,
-      
+
       // Experience arrays
       organisasi_nama: userData.organisasi_nama,
       organisasi_jabatan: userData.organisasi_jabatan,
@@ -372,15 +412,15 @@ class RegistrationProcessor {
       prestasi_nama: userData.prestasi_nama,
       prestasi_tingkat: userData.prestasi_tingkat,
       prestasi_tahun: userData.prestasi_tahun,
-      
+
       // Division info
       divisi: userData.divisi,
-      
+
       // Files
       foto_path: uploadedFiles.foto,
       organisasi_sertifikat: organisasiSertArray,
       prestasi_sertifikat: prestasiSertArray,
-      
+
       // Metadata
       ticket: ticket,
       status: "PENDING",
@@ -418,47 +458,52 @@ router.get("/", (req, res) => {
 router.post(
   "/register",
   processor.fileManager.upload.any(),
-  
+
   // Enhanced multer error handling
   (err, req, res, next) => {
     if (err instanceof multer.MulterError) {
       console.error("❌ Multer error:", err);
       let message = "Error upload file";
-      
+
       switch (err.code) {
-        case 'LIMIT_FILE_SIZE':
+        case "LIMIT_FILE_SIZE":
           message = "File terlalu besar. Maksimal 50MB per file.";
           break;
-        case 'LIMIT_FILE_COUNT':
+        case "LIMIT_FILE_COUNT":
           message = "Terlalu banyak file. Maksimal 50 file.";
           break;
-        case 'LIMIT_UNEXPECTED_FILE':
+        case "LIMIT_UNEXPECTED_FILE":
           message = "Format file tidak didukung atau field tidak valid.";
           break;
       }
-      
+
       return res.status(400).json({
         success: false,
         message: message,
-        error: err.code
+        error: err.code,
       });
     } else if (err) {
       console.error("❌ File upload error:", err);
       return res.status(400).json({
         success: false,
-        message: err.message || "Terjadi kesalahan saat upload file"
+        message: err.message || "Terjadi kesalahan saat upload file",
       });
     }
     next();
   },
-  
+
   validateRegistration,
   handleValidationErrors,
-  
+
   async (req, res) => {
     console.log("=== ENHANCED REGISTRATION REQUEST ===");
     console.log("📝 Body keys:", Object.keys(req.body));
-    console.log("📁 Files:", req.files ? req.files.map(f => `${f.fieldname}: ${f.originalname}`) : "No files");
+    console.log(
+      "📁 Files:",
+      req.files
+        ? req.files.map((f) => `${f.fieldname}: ${f.originalname}`)
+        : "No files"
+    );
 
     try {
       // Process form data
@@ -472,9 +517,9 @@ router.post(
       // Process uploaded files
       const uploadedFiles = processor.processUploadedFiles(req.files);
       console.log("✅ Files processed:", {
-        foto: uploadedFiles.foto ? 'Yes' : 'No',
+        foto: uploadedFiles.foto ? "Yes" : "No",
         org_certs: Object.keys(uploadedFiles.organisasi_sertifikat).length,
-        prestasi_certs: Object.keys(uploadedFiles.prestasi_sertifikat).length
+        prestasi_certs: Object.keys(uploadedFiles.prestasi_sertifikat).length,
       });
 
       // Validate required photo
@@ -482,7 +527,7 @@ router.post(
         return res.status(400).json({
           success: false,
           message: "Foto 3x4 wajib diupload",
-          error: "MISSING_PHOTO"
+          error: "MISSING_PHOTO",
         });
       }
 
@@ -491,7 +536,7 @@ router.post(
         return res.status(400).json({
           success: false,
           message: "Minimal pilih satu bidang/divisi",
-          error: "NO_DIVISION_SELECTED"
+          error: "NO_DIVISION_SELECTED",
         });
       }
 
@@ -500,31 +545,44 @@ router.post(
       console.log(`🎫 Generated ticket: ${ticket}`);
 
       // Save to database
-      const userId = await processor.saveUserData(userData, uploadedFiles, ticket);
+      const userId = await processor.saveUserData(
+        userData,
+        uploadedFiles,
+        ticket
+      );
       console.log(`✅ User saved with ID: ${userId}`);
 
       // Send Telegram notification (non-blocking)
       setImmediate(async () => {
         try {
           console.log("📤 Preparing Telegram notification...");
-          const telegramData = processor.prepareTelegramData(userData, uploadedFiles, ticket);
+          const telegramData = processor.prepareTelegramData(
+            userData,
+            uploadedFiles,
+            ticket
+          );
           console.log("📱 Calling sendTelegramNotification with data:", {
             nama_lengkap: telegramData.nama_lengkap,
             ticket: telegramData.ticket,
             hasPhoto: !!telegramData.foto_path,
-            organisasi: telegramData.organisasi ? telegramData.organisasi.length : 0,
-            prestasi: telegramData.prestasi ? telegramData.prestasi.length : 0
+            organisasi: telegramData.organisasi
+              ? telegramData.organisasi.length
+              : 0,
+            prestasi: telegramData.prestasi ? telegramData.prestasi.length : 0,
           });
-          
+
           const result = await sendTelegramNotification(telegramData);
-          
+
           if (result.success) {
             console.log("✅ Telegram notification sent successfully");
           } else {
             console.error("❌ Telegram notification failed:", result.error);
           }
         } catch (telegramError) {
-          console.error("❌ Telegram notification error:", telegramError.message);
+          console.error(
+            "❌ Telegram notification error:",
+            telegramError.message
+          );
           console.error("📊 Error details:", telegramError);
           // Don't fail the registration
         }
@@ -538,20 +596,23 @@ router.post(
         user_id: userId,
         files_uploaded: {
           photo: !!uploadedFiles.foto,
-          organization_certificates: Object.keys(uploadedFiles.organisasi_sertifikat).length,
-          achievement_certificates: Object.keys(uploadedFiles.prestasi_sertifikat).length
-        }
+          organization_certificates: Object.keys(
+            uploadedFiles.organisasi_sertifikat
+          ).length,
+          achievement_certificates: Object.keys(
+            uploadedFiles.prestasi_sertifikat
+          ).length,
+        },
       });
-
     } catch (error) {
       console.error("❌ Registration error:", error);
-      
+
       // Handle specific errors
       if (error.message.includes("sudah terdaftar")) {
         return res.status(400).json({
           success: false,
           message: error.message,
-          error: "DUPLICATE_NAME"
+          error: "DUPLICATE_NAME",
         });
       }
 
@@ -559,7 +620,7 @@ router.post(
       res.status(500).json({
         success: false,
         message: "Terjadi kesalahan server internal",
-        error: "INTERNAL_SERVER_ERROR"
+        error: "INTERNAL_SERVER_ERROR",
       });
     }
   }
@@ -578,7 +639,8 @@ router.get(
       const connection = await getConnection();
       try {
         // Get user with related data
-        const [users] = await connection.execute(`
+        const [users] = await connection.execute(
+          `
           SELECT u.*, 
                  GROUP_CONCAT(DISTINCT o.nama_organisasi) as organisasi_list,
                  GROUP_CONCAT(DISTINCT p.nama_prestasi) as prestasi_list,
@@ -589,26 +651,32 @@ router.get(
           LEFT JOIN divisi d ON u.id = d.user_id
           WHERE u.ticket = ?
           GROUP BY u.id
-        `, [ticket]);
+        `,
+          [ticket]
+        );
 
         if (users.length === 0) {
           return res.status(404).json({
             success: false,
-            message: "Nomor tiket tidak ditemukan"
+            message: "Nomor tiket tidak ditemukan",
           });
         }
 
         const user = users[0];
-        
+
         // Format response compatible with hasil.html
         const responseData = {
           success: true,
           ticket: user.ticket,
           // Map status values for frontend compatibility (lowercase)
-          status: user.status === 'LOLOS' ? 'approved' : 
-                  user.status === 'TIDAK_LOLOS' ? 'rejected' : 'pending',
-          // Map field names for frontend compatibility  
-          nama: user.nama_lengkap,  // Frontend expects 'nama'
+          status:
+            user.status === "LOLOS"
+              ? "approved"
+              : user.status === "TIDAK_LOLOS"
+              ? "rejected"
+              : "pending",
+          // Map field names for frontend compatibility
+          nama: user.nama_lengkap, // Frontend expects 'nama'
           nama_lengkap: user.nama_lengkap,
           nama_panggilan: user.nama_panggilan,
           kelas: user.kelas,
@@ -624,22 +692,25 @@ router.get(
           motto: user.motto,
           motivasi: user.motivasi,
           // Format divisi for frontend compatibility
-          divisi: user.divisi_list ? user.divisi_list.split(',').map(nama => ({
-            nama_divisi: nama.trim()
-          })) : [],
+          divisi: user.divisi_list
+            ? user.divisi_list.split(",").map((nama) => ({
+                nama_divisi: nama.trim(),
+              }))
+            : [],
           created_at: user.created_at,
           updated_at: user.updated_at,
         };
 
         // Add status-specific data
-        if (user.status === 'LOLOS') {
+        if (user.status === "LOLOS") {
           // Generate QR code for WhatsApp group if needed
           try {
             const qrCode = await processor.generateQRCode({
-              whatsapp_link: process.env.DEFAULT_WHATSAPP_GROUP_LINK
+              whatsapp_link: process.env.DEFAULT_WHATSAPP_GROUP_LINK,
             });
-            responseData.barcode_base64 = qrCode;  // Frontend expects 'barcode_base64'
-            responseData.whatsapp_link = process.env.DEFAULT_WHATSAPP_GROUP_LINK;
+            responseData.barcode_base64 = qrCode; // Frontend expects 'barcode_base64'
+            responseData.whatsapp_link =
+              process.env.DEFAULT_WHATSAPP_GROUP_LINK;
           } catch (qrError) {
             console.warn("⚠️ Could not generate QR code:", qrError.message);
           }
@@ -647,7 +718,6 @@ router.get(
 
         console.log(`✅ Ticket check successful: ${ticket} -> ${user.status}`);
         res.json(responseData);
-
       } finally {
         connection.release();
       }
@@ -655,82 +725,74 @@ router.get(
       console.error("❌ Ticket check error:", error);
       res.status(500).json({
         success: false,
-        message: "Terjadi kesalahan server internal"
+        message: "Terjadi kesalahan server internal",
       });
     }
   }
 );
 
 // Alternative endpoint for compatibility (both /check/:ticket and /ticket/:ticket)
-router.get(
-  "/check/:ticket", 
-  (req, res, next) => {
-    // Redirect to /ticket/:ticket for consistency
-    req.url = `/api/ticket/${req.params.ticket}`;
-    next('route');
-  }
-);
+router.get("/check/:ticket", (req, res, next) => {
+  // Redirect to /ticket/:ticket for consistency
+  req.url = `/api/ticket/${req.params.ticket}`;
+  next("route");
+});
 
 // QR verification endpoint
-router.post(
-  "/verify-qr",
-  handleValidationErrors,
-  async (req, res) => {
+router.post("/verify-qr", handleValidationErrors, async (req, res) => {
+  try {
+    const { ticket } = req.body;
+    console.log(`🔍 QR verification for ticket: ${ticket}`);
+
+    const connection = await getConnection();
     try {
-      const { ticket } = req.body;
-      console.log(`🔍 QR verification for ticket: ${ticket}`);
+      const [users] = await connection.execute(
+        "SELECT ticket, status, nama_lengkap FROM users WHERE ticket = ?",
+        [ticket]
+      );
 
-      const connection = await getConnection();
-      try {
-        const [users] = await connection.execute(
-          'SELECT ticket, status, nama_lengkap FROM users WHERE ticket = ?',
-          [ticket]
-        );
-
-        if (users.length === 0) {
-          return res.status(404).json({
-            success: false,
-            message: "Tiket tidak valid",
-            error: "INVALID_TICKET"
-          });
-        }
-
-        const user = users[0];
-        
-        if (user.status !== 'LOLOS') {
-          return res.status(403).json({
-            success: false,
-            message: "Akses ditolak. Status belum disetujui.",
-            error: "ACCESS_DENIED",
-            status: user.status
-          });
-        }
-
-        // Successful verification
-        res.json({
-          success: true,
-          message: `Selamat datang ${user.nama_lengkap}! Akses berhasil diverifikasi.`,
-          data: {
-            ticket: user.ticket,
-            nama_lengkap: user.nama_lengkap,
-            status: user.status,
-            verified_at: new Date().toISOString()
-          }
+      if (users.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Tiket tidak valid",
+          error: "INVALID_TICKET",
         });
-
-      } finally {
-        connection.release();
       }
-    } catch (error) {
-      console.error("❌ QR verification error:", error);
-      res.status(500).json({
-        success: false,
-        message: "Terjadi kesalahan server internal",
-        error: "INTERNAL_SERVER_ERROR"
+
+      const user = users[0];
+
+      if (user.status !== "LOLOS") {
+        return res.status(403).json({
+          success: false,
+          message: "Akses ditolak. Status belum disetujui.",
+          error: "ACCESS_DENIED",
+          status: user.status,
+        });
+      }
+
+      // Successful verification
+      res.json({
+        success: true,
+        message: `Selamat datang ${user.nama_lengkap}! Akses berhasil diverifikasi.`,
+        data: {
+          ticket: user.ticket,
+          nama_lengkap: user.nama_lengkap,
+          status: user.status,
+          verified_at: new Date().toISOString(),
+        },
       });
+    } finally {
+      connection.release();
     }
+  } catch (error) {
+    console.error("❌ QR verification error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Terjadi kesalahan server internal",
+      error: "INTERNAL_SERVER_ERROR",
+    });
   }
-);
+});
 
 // Health check endpoint
 router.get("/health", (req, res) => {
@@ -739,7 +801,7 @@ router.get("/health", (req, res) => {
     message: "API is healthy",
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
-    version: "2.0.0"
+    version: "2.0.0",
   });
 });
 

@@ -16,17 +16,28 @@ class TelegramBotManager {
   // Initialize bot with error handling and retry logic
   async initialize() {
     if (!process.env.TELEGRAM_BOT_TOKEN) {
-      console.log("⚠️ Telegram bot token not found, skipping bot initialization");
+      console.log(
+        "⚠️ Telegram bot token not found, skipping bot initialization"
+      );
       return;
     }
 
     try {
       this.bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, {
         polling: {
-          interval: 1000,
+          interval: 500, // Reduced from 1000ms to 500ms for faster response
           autoStart: true,
-          params: { timeout: 10 }
-        }
+          params: { 
+            timeout: 5, // Reduced from 10 to 5 for faster timeout
+            limit: 100, // Process up to 100 messages per request
+          },
+        },
+        // Optimizations for high load
+        request: {
+          family: 4, // Force IPv4
+          timeout: 30000, // 30 second timeout
+          agent: false, // No keep-alive agent
+        },
       });
 
       // Enhanced error handling
@@ -41,7 +52,7 @@ class TelegramBotManager {
 
       // Setup command handlers
       this.setupCommands();
-      
+
       this.isInitialized = true;
       console.log("🤖 Telegram bot initialized successfully");
     } catch (error) {
@@ -53,18 +64,24 @@ class TelegramBotManager {
   async retryInitialization() {
     if (this.retryCount < this.maxRetries) {
       this.retryCount++;
-      console.log(`🔄 Retrying bot initialization... (${this.retryCount}/${this.maxRetries})`);
+      console.log(
+        `🔄 Retrying bot initialization... (${this.retryCount}/${this.maxRetries})`
+      );
       setTimeout(() => this.initialize(), 5000);
     } else {
-      console.error("❌ Max retry attempts reached. Bot initialization failed.");
+      console.error(
+        "❌ Max retry attempts reached. Bot initialization failed."
+      );
     }
   }
 
   handlePollingError(error) {
     // Don't restart on certain errors
-    const nonCriticalErrors = ['ETELEGRAM', 'ECONNRESET', 'ECONNREFUSED'];
-    const isNonCritical = nonCriticalErrors.some(err => error.message.includes(err));
-    
+    const nonCriticalErrors = ["ETELEGRAM", "ECONNRESET", "ECONNREFUSED"];
+    const isNonCritical = nonCriticalErrors.some((err) =>
+      error.message.includes(err)
+    );
+
     if (!isNonCritical && this.retryCount < this.maxRetries) {
       console.log("🔄 Attempting to restart polling...");
       setTimeout(() => {
@@ -86,16 +103,16 @@ class TelegramBotManager {
 
     try {
       console.log("📤 Preparing enhanced Telegram notification...");
-      
+
       // Create message with improved formatting
       const message = this.createFormattedMessage(data);
-      
+
       // Collect and validate media files with better error handling
       const mediaFiles = await this.collectAndValidateFiles(data);
-      
+
       // Send notification with retry logic
       await this.sendWithRetry(message, mediaFiles, data);
-      
+
       console.log("✅ Telegram notification sent successfully");
       return { success: true };
     } catch (error) {
@@ -108,14 +125,14 @@ class TelegramBotManager {
   async collectAndValidateFiles(data) {
     const mediaFiles = [];
     const baseUploadPath = path.join(__dirname, "..", "uploads");
-    
+
     try {
       // Main photo handling with multiple fallback paths
       if (data.foto_path) {
         const photoPaths = [
           path.join(baseUploadPath, "photos", data.foto_path),
           path.join(baseUploadPath, data.foto_path), // fallback
-          path.join(__dirname, "..", data.foto_path) // another fallback
+          path.join(__dirname, "..", data.foto_path), // another fallback
         ];
 
         for (const photoPath of photoPaths) {
@@ -126,9 +143,13 @@ class TelegramBotManager {
               path: photoPath,
               caption: `📷 <b>Foto 3x4</b> - ${data.nama_lengkap}`,
               size: stats.size,
-              isMain: true
+              isMain: true,
             });
-            console.log(`✅ Found photo: ${photoPath} (${this.formatFileSize(stats.size)})`);
+            console.log(
+              `✅ Found photo: ${photoPath} (${this.formatFileSize(
+                stats.size
+              )})`
+            );
             break;
           }
         }
@@ -141,19 +162,25 @@ class TelegramBotManager {
       // Organization certificates with improved handling
       await this.collectCertificates(
         data,
-        'organisasi',
+        "organisasi",
         baseUploadPath,
         mediaFiles,
-        (org, index) => `📜 <b>Sertifikat Organisasi ${index + 1}</b> - ${org.nama || org.nama_organisasi || 'Organisasi'}`
+        (org, index) =>
+          `📜 <b>Sertifikat Organisasi ${index + 1}</b> - ${
+            org.nama || org.nama_organisasi || "Organisasi"
+          }`
       );
 
       // Achievement certificates with improved handling
       await this.collectCertificates(
         data,
-        'prestasi',
+        "prestasi",
         baseUploadPath,
         mediaFiles,
-        (prestasi, index) => `🏆 <b>Sertifikat Prestasi ${index + 1}</b> - ${prestasi.nama || prestasi.nama_prestasi || 'Prestasi'}`
+        (prestasi, index) =>
+          `🏆 <b>Sertifikat Prestasi ${index + 1}</b> - ${
+            prestasi.nama || prestasi.nama_prestasi || "Prestasi"
+          }`
       );
 
       console.log(`📁 Collected ${mediaFiles.length} valid media files`);
@@ -165,8 +192,14 @@ class TelegramBotManager {
   }
 
   // Generic certificate collection method
-  async collectCertificates(data, type, baseUploadPath, mediaFiles, getCaptionFn) {
-    const typeKey = type === 'organisasi' ? 'organisasi' : 'prestasi';
+  async collectCertificates(
+    data,
+    type,
+    baseUploadPath,
+    mediaFiles,
+    getCaptionFn
+  ) {
+    const typeKey = type === "organisasi" ? "organisasi" : "prestasi";
     const sertifikatKey = `${type}_sertifikat`;
     const namaKey = `${type}_nama`;
 
@@ -176,20 +209,30 @@ class TelegramBotManager {
         const item = data[typeKey][i];
         const filename = item.sertifikat_path || item.sertifikat;
         if (filename) {
-          await this.addCertificateFile(filename, baseUploadPath, mediaFiles, getCaptionFn(item, i));
+          await this.addCertificateFile(
+            filename,
+            baseUploadPath,
+            mediaFiles,
+            getCaptionFn(item, i)
+          );
         }
       }
     }
-    
+
     // Handle array of filenames (from registration form)
     else if (data[sertifikatKey] && Array.isArray(data[sertifikatKey])) {
       for (let i = 0; i < data[sertifikatKey].length; i++) {
         const filename = data[sertifikatKey][i];
         if (filename) {
-          const item = { 
-            nama: data[namaKey] && data[namaKey][i] ? data[namaKey][i] : null 
+          const item = {
+            nama: data[namaKey] && data[namaKey][i] ? data[namaKey][i] : null,
           };
-          await this.addCertificateFile(filename, baseUploadPath, mediaFiles, getCaptionFn(item, i));
+          await this.addCertificateFile(
+            filename,
+            baseUploadPath,
+            mediaFiles,
+            getCaptionFn(item, i)
+          );
         }
       }
     }
@@ -200,7 +243,7 @@ class TelegramBotManager {
     const certPaths = [
       path.join(baseUploadPath, "certificates", filename),
       path.join(baseUploadPath, filename), // fallback
-      path.join(__dirname, "..", filename) // another fallback
+      path.join(__dirname, "..", filename), // another fallback
     ];
 
     for (const certPath of certPaths) {
@@ -210,13 +253,17 @@ class TelegramBotManager {
           type: "document",
           path: certPath,
           caption: caption,
-          size: stats.size
+          size: stats.size,
         });
-        console.log(`✅ Found certificate: ${certPath} (${this.formatFileSize(stats.size)})`);
+        console.log(
+          `✅ Found certificate: ${certPath} (${this.formatFileSize(
+            stats.size
+          )})`
+        );
         return;
       }
     }
-    
+
     console.warn(`⚠️ Certificate not found: ${filename}`);
   }
 
@@ -224,32 +271,45 @@ class TelegramBotManager {
   createFormattedMessage(data) {
     const year = new Date().getFullYear();
     const statusIcon = this.getStatusIcon(data.status || "PENDING");
-    
+
     let message = `🎉 <b>PENDAFTAR BARU OSIS ${year}/${year + 1}</b>\n\n`;
 
     // Personal Information
     message += `👤 <b>IDENTITAS LENGKAP</b>\n`;
-    message += `┣ 📝 Nama: <b>${data.nama_lengkap || 'N/A'}</b>\n`;
-    message += `┣ 🏷 Panggilan: ${data.nama_panggilan || 'N/A'}\n`;
-    message += `┣ 🏫 Kelas: ${data.kelas || 'N/A'} - ${data.jurusan || 'N/A'}\n`;
-    
+    message += `┣ 📝 Nama: <b>${data.nama_lengkap || "N/A"}</b>\n`;
+    message += `┣ 🏷 Panggilan: ${data.nama_panggilan || "N/A"}\n`;
+    message += `┣ 🏫 Kelas: ${data.kelas || "N/A"} - ${
+      data.jurusan || "N/A"
+    }\n`;
+
     // Format birth date properly
-    const birthDate = data.tanggal_lahir ? 
-      new Date(data.tanggal_lahir).toLocaleDateString("id-ID", {
-        day: "numeric", month: "long", year: "numeric"
-      }) : "N/A";
-    message += `┣ 📍 TTL: ${data.tempat_lahir || 'N/A'}, ${birthDate}\n`;
-    message += `┣ ⚧ Gender: ${data.jenis_kelamin || 'N/A'} | 🕌 ${data.agama || 'N/A'}\n`;
-    message += `┣ 📱 HP: ${data.nomor_telepon ? `<code>${data.nomor_telepon}</code>` : 'N/A'}\n`;
-    message += `┣ 🏠 Alamat: ${data.alamat || 'N/A'}\n`;
-    message += `┣ 🎨 Hobi: ${data.hobi || 'N/A'}\n`;
-    message += `┗ 💭 Motto: ${data.motto || 'N/A'}\n\n`;
+    const birthDate = data.tanggal_lahir
+      ? new Date(data.tanggal_lahir).toLocaleDateString("id-ID", {
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        })
+      : "N/A";
+    message += `┣ 📍 TTL: ${data.tempat_lahir || "N/A"}, ${birthDate}\n`;
+    message += `┣ ⚧ Gender: ${data.jenis_kelamin || "N/A"} | 🕌 ${
+      data.agama || "N/A"
+    }\n`;
+    message += `┣ 📱 HP: ${
+      data.nomor_telepon ? `<code>${data.nomor_telepon}</code>` : "N/A"
+    }\n`;
+    message += `┣ 🏠 Alamat: ${data.alamat || "N/A"}\n`;
+    message += `┣ 🎨 Hobi: ${data.hobi || "N/A"}\n`;
+    message += `┗ 💭 Motto: ${data.motto || "N/A"}\n\n`;
 
     // Organization experience
-    message += this.formatExperience(data, 'organisasi', '🏛 <b>PENGALAMAN ORGANISASI</b>');
-    
+    message += this.formatExperience(
+      data,
+      "organisasi",
+      "🏛 <b>PENGALAMAN ORGANISASI</b>"
+    );
+
     // Achievements
-    message += this.formatExperience(data, 'prestasi', '🏆 <b>PRESTASI</b>');
+    message += this.formatExperience(data, "prestasi", "🏆 <b>PRESTASI</b>");
 
     // Divisions and reasons
     if (data.divisi && Array.isArray(data.divisi) && data.divisi.length > 0) {
@@ -257,18 +317,22 @@ class TelegramBotManager {
       data.divisi.forEach((div, index) => {
         const alasanField = `alasan_${div}`;
         message += `${index + 1}. <b>${div.toUpperCase()}</b>\n`;
-        message += `   💬 ${data[alasanField] || 'N/A'}\n\n`;
+        message += `   💬 ${data[alasanField] || "N/A"}\n\n`;
       });
     }
 
     // Motivation
     message += `💭 <b>MOTIVASI BERGABUNG</b>\n`;
-    message += `${data.motivasi || 'N/A'}\n\n`;
+    message += `${data.motivasi || "N/A"}\n\n`;
 
     // Status and metadata
-    message += `📊 <b>STATUS:</b> ${statusIcon} ${this.formatStatus(data.status || 'PENDING')}\n`;
+    message += `📊 <b>STATUS:</b> ${statusIcon} ${this.formatStatus(
+      data.status || "PENDING"
+    )}\n`;
     message += `🎫 Tiket: <code>${data.ticket}</code>\n`;
-    message += `📅 Terdaftar: ${this.formatDate(data.created_at || new Date())}\n\n`;
+    message += `📅 Terdaftar: ${this.formatDate(
+      data.created_at || new Date()
+    )}\n\n`;
 
     // Quick actions
     message += `⚡ <b>AKSI CEPAT</b>\n`;
@@ -281,21 +345,25 @@ class TelegramBotManager {
 
   // Format experience (organization/achievement) with optional certificates
   formatExperience(data, type, title) {
-    let result = '';
+    let result = "";
     const items = data[type];
     const namaKey = `${type}_nama`;
     const sertifikatKey = `${type}_sertifikat`;
-    
+
     // Handle array of objects from database
     if (items && Array.isArray(items) && items.length > 0) {
       result += `${title}\n`;
       items.forEach((item, index) => {
         if (item.nama || item[`nama_${type}`]) {
           result += `┣ ${index + 1}. ${item.nama || item[`nama_${type}`]}\n`;
-          if (type === 'organisasi') {
-            result += `┃   📋 ${item.jabatan || 'Tidak disebutkan'} (${item.tahun || 'Tidak disebutkan'})\n`;
+          if (type === "organisasi") {
+            result += `┃   📋 ${item.jabatan || "Tidak disebutkan"} (${
+              item.tahun || "Tidak disebutkan"
+            })\n`;
           } else {
-            result += `┃   🎖 ${item.tingkat || 'Tidak disebutkan'} (${item.tahun || 'Tidak disebutkan'})\n`;
+            result += `┃   🎖 ${item.tingkat || "Tidak disebutkan"} (${
+              item.tahun || "Tidak disebutkan"
+            })\n`;
           }
           // Certificate is optional
           if (item.sertifikat_path) {
@@ -305,21 +373,37 @@ class TelegramBotManager {
           }
         }
       });
-      result += '\n';
+      result += "\n";
     }
-    
+
     // Handle separate arrays (legacy format) - also optional certificates
-    else if (data[namaKey] && Array.isArray(data[namaKey]) && data[namaKey].length > 0) {
-      const hasData = data[namaKey].some(nama => nama && nama.trim() !== '');
+    else if (
+      data[namaKey] &&
+      Array.isArray(data[namaKey]) &&
+      data[namaKey].length > 0
+    ) {
+      const hasData = data[namaKey].some((nama) => nama && nama.trim() !== "");
       if (hasData) {
         result += `${title}\n`;
         data[namaKey].forEach((nama, index) => {
-          if (nama && nama.trim() !== '') {
+          if (nama && nama.trim() !== "") {
             result += `┣ ${index + 1}. ${nama}\n`;
-            if (type === 'organisasi') {
-              result += `┃   📋 ${(data.organisasi_jabatan && data.organisasi_jabatan[index]) || 'Tidak disebutkan'} (${(data.organisasi_tahun && data.organisasi_tahun[index]) || 'Tidak disebutkan'})\n`;
+            if (type === "organisasi") {
+              result += `┃   📋 ${
+                (data.organisasi_jabatan && data.organisasi_jabatan[index]) ||
+                "Tidak disebutkan"
+              } (${
+                (data.organisasi_tahun && data.organisasi_tahun[index]) ||
+                "Tidak disebutkan"
+              })\n`;
             } else {
-              result += `┃   🎖 ${(data.prestasi_tingkat && data.prestasi_tingkat[index]) || 'Tidak disebutkan'} (${(data.prestasi_tahun && data.prestasi_tahun[index]) || 'Tidak disebutkan'})\n`;
+              result += `┃   🎖 ${
+                (data.prestasi_tingkat && data.prestasi_tingkat[index]) ||
+                "Tidak disebutkan"
+              } (${
+                (data.prestasi_tahun && data.prestasi_tahun[index]) ||
+                "Tidak disebutkan"
+              })\n`;
             }
             // Certificate is optional - show friendly message
             if (data[sertifikatKey] && data[sertifikatKey][index]) {
@@ -329,10 +413,10 @@ class TelegramBotManager {
             }
           }
         });
-        result += '\n';
+        result += "\n";
       }
     }
-    
+
     return result;
   }
 
@@ -343,16 +427,24 @@ class TelegramBotManager {
         await this.sendNotification(message, mediaFiles, data);
         return;
       } catch (error) {
-        console.error(`❌ Send attempt ${attempt}/${maxRetries} failed:`, error.message);
-        
+        console.error(
+          `❌ Send attempt ${attempt}/${maxRetries} failed:`,
+          error.message
+        );
+
         if (attempt === maxRetries) {
           // Last attempt - try sending text only as fallback
           try {
             await this.sendTextMessage(message);
             console.log("✅ Fallback text message sent successfully");
           } catch (fallbackError) {
-            console.error("❌ Fallback text message also failed:", fallbackError.message);
-            throw new Error(`All send attempts failed. Last error: ${error.message}`);
+            console.error(
+              "❌ Fallback text message also failed:",
+              fallbackError.message
+            );
+            throw new Error(
+              `All send attempts failed. Last error: ${error.message}`
+            );
           }
         } else {
           // Wait before retry
@@ -366,19 +458,23 @@ class TelegramBotManager {
   async sendNotification(message, mediaFiles, data) {
     const PHOTO_MAX_SIZE = 10 * 1024 * 1024; // 10MB
     const CAPTION_LIMIT = 1024;
-    
+
     const photos = [];
     const documents = [];
-    
+
     // Categorize files by type and size
     for (const file of mediaFiles) {
       if (file.type === "photo") {
         if (file.size > PHOTO_MAX_SIZE) {
-          console.warn(`⚠️ Photo too large (${this.formatFileSize(file.size)}), sending as document`);
+          console.warn(
+            `⚠️ Photo too large (${this.formatFileSize(
+              file.size
+            )}), sending as document`
+          );
           documents.push({
             ...file,
             type: "document",
-            caption: file.caption.replace(/<\/?b>/g, "")
+            caption: file.caption.replace(/<\/?b>/g, ""),
           });
         } else {
           photos.push(file);
@@ -389,7 +485,7 @@ class TelegramBotManager {
     }
 
     let mainCaption = message;
-    
+
     // Handle long messages
     if (mainCaption.length > CAPTION_LIMIT) {
       await this.sendTextMessage(mainCaption);
@@ -415,14 +511,15 @@ class TelegramBotManager {
     if (photos.length === 1) {
       await this.bot.sendPhoto(process.env.TELEGRAM_CHAT_ID, photos[0].path, {
         caption: caption,
-        parse_mode: "HTML"
+        parse_mode: "HTML",
       });
     } else {
       const mediaGroup = photos.map((photo, index) => ({
         type: "photo",
         media: photos[0].path,
-        caption: index === 0 ? caption : `📷 Foto ${index + 1} - ${data.nama_lengkap}`,
-        parse_mode: "HTML"
+        caption:
+          index === 0 ? caption : `📷 Foto ${index + 1} - ${data.nama_lengkap}`,
+        parse_mode: "HTML",
       }));
       await this.bot.sendMediaGroup(process.env.TELEGRAM_CHAT_ID, mediaGroup);
     }
@@ -432,27 +529,38 @@ class TelegramBotManager {
   // Send documents individually with proper error handling
   async sendDocuments(documents) {
     console.log(`📨 Sending ${documents.length} document(s)...`);
-    
+
     for (let i = 0; i < documents.length; i++) {
       const doc = documents[i];
       try {
         await this.bot.sendDocument(process.env.TELEGRAM_CHAT_ID, doc.path, {
           caption: doc.caption,
-          parse_mode: "HTML"
+          parse_mode: "HTML",
         });
-        console.log(`✅ Document ${i + 1}/${documents.length} sent: ${path.basename(doc.path)}`);
+        console.log(
+          `✅ Document ${i + 1}/${documents.length} sent: ${path.basename(
+            doc.path
+          )}`
+        );
       } catch (error) {
-        console.error(`❌ Failed to send document ${path.basename(doc.path)}:`, error.message);
-        
+        console.error(
+          `❌ Failed to send document ${path.basename(doc.path)}:`,
+          error.message
+        );
+
         // Try without caption as fallback
         try {
           await this.bot.sendDocument(process.env.TELEGRAM_CHAT_ID, doc.path);
-          console.log(`✅ Document sent without caption: ${path.basename(doc.path)}`);
+          console.log(
+            `✅ Document sent without caption: ${path.basename(doc.path)}`
+          );
         } catch (fallbackError) {
-          console.error(`❌ Complete failure for document: ${path.basename(doc.path)}`);
+          console.error(
+            `❌ Complete failure for document: ${path.basename(doc.path)}`
+          );
         }
       }
-      
+
       if (i < documents.length - 1) {
         await this.delay(300); // Rate limiting
       }
@@ -462,39 +570,39 @@ class TelegramBotManager {
   // Send text message with HTML parsing
   async sendTextMessage(text) {
     await this.bot.sendMessage(process.env.TELEGRAM_CHAT_ID, text, {
-      parse_mode: "HTML"
+      parse_mode: "HTML",
     });
     console.log("✅ Text message sent");
   }
 
   // Utility methods
   formatFileSize(bytes) {
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    if (bytes === 0) return '0 B';
+    const sizes = ["B", "KB", "MB", "GB"];
+    if (bytes === 0) return "0 B";
     const i = Math.floor(Math.log(bytes) / Math.log(1024));
-    return `${Math.round(bytes / Math.pow(1024, i) * 100) / 100} ${sizes[i]}`;
+    return `${Math.round((bytes / Math.pow(1024, i)) * 100) / 100} ${sizes[i]}`;
   }
 
   getStatusIcon(status) {
     const icons = {
-      'PENDING': '⏳',
-      'PENDING_TERIMA': '🟡',
-      'PENDING_TOLAK': '🟠', 
-      'LOLOS': '✅', 
-      'DITOLAK': '❌',
-      'PENDING_BOT_APPROVAL': '🔄'
+      PENDING: "⏳",
+      PENDING_TERIMA: "🟡",
+      PENDING_TOLAK: "🟠",
+      LOLOS: "✅",
+      DITOLAK: "❌",
+      PENDING_BOT_APPROVAL: "🔄",
     };
-    return icons[status] || '❓';
+    return icons[status] || "❓";
   }
 
   formatStatus(status) {
     const statuses = {
-      'PENDING': 'Menunggu Review',
-      'PENDING_TERIMA': 'Menunggu Push (Diterima)',
-      'PENDING_TOLAK': 'Menunggu Push (Ditolak)',
-      'LOLOS': 'Diterima',
-      'DITOLAK': 'Ditolak', 
-      'PENDING_BOT_APPROVAL': 'Menunggu Persetujuan Bot'
+      PENDING: "Menunggu Review",
+      PENDING_TERIMA: "Menunggu Push (Diterima)",
+      PENDING_TOLAK: "Menunggu Push (Ditolak)",
+      LOLOS: "Diterima",
+      DITOLAK: "Ditolak",
+      PENDING_BOT_APPROVAL: "Menunggu Persetujuan Bot",
     };
     return statuses[status] || status;
   }
@@ -502,29 +610,33 @@ class TelegramBotManager {
   formatDate(date) {
     return new Date(date).toLocaleDateString("id-ID", {
       day: "numeric",
-      month: "long", 
+      month: "long",
       year: "numeric",
       hour: "2-digit",
-      minute: "2-digit"
+      minute: "2-digit",
     });
   }
 
   delay(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   // Enhanced command setup
   setupCommands() {
     if (!this.bot) return;
-    
+
     console.log("🛠️ Setting up enhanced bot commands...");
-    
+
     // Welcome command
     this.bot.onText(/\/start/, (msg) => {
       const welcomeMessage = `
-🎭 <b>BOT OSIS RECRUITMENT ${new Date().getFullYear()}/${new Date().getFullYear() + 1}</b>
+🎭 <b>BOT OSIS RECRUITMENT ${new Date().getFullYear()}/${
+        new Date().getFullYear() + 1
+      }</b>
 
-👋 Halo ${msg.from.first_name}! Selamat datang di sistem rekrutmen OSIS otomatis.
+👋 Halo ${
+        msg.from.first_name
+      }! Selamat datang di sistem rekrutmen OSIS otomatis.
 
 <b>🔧 PERINTAH UMUM:</b>
 ┣ 📋 /help - Panduan lengkap
@@ -557,7 +669,7 @@ Ketik /help untuk panduan lengkap penggunaan.
       await this.handleStatusCommand(msg.chat.id, match[1]);
     });
 
-    // Stats command  
+    // Stats command
     this.bot.onText(/\/stats/, async (msg) => {
       await this.handleStatsCommand(msg.chat.id);
     });
@@ -687,16 +799,17 @@ Butuh bantuan? Hubungi administrator.
     try {
       // Implementation for status check
       console.log(`🔍 Checking status for ticket: ${ticket}`);
-      
+
       const connection = await getConnection();
       try {
         const [users] = await connection.execute(
-          'SELECT * FROM users WHERE ticket = ?',
+          "SELECT * FROM users WHERE ticket = ?",
           [ticket.trim()]
         );
 
         if (users.length === 0) {
-          await this.bot.sendMessage(chatId, 
+          await this.bot.sendMessage(
+            chatId,
             `❌ <b>Tiket tidak ditemukan</b>\n\nTiket: <code>${ticket}</code>\n\nPastikan nomor tiket benar dan sudah terdaftar.`,
             { parse_mode: "HTML" }
           );
@@ -705,92 +818,106 @@ Butuh bantuan? Hubungi administrator.
 
         const user = users[0];
         const statusMessage = this.formatUserStatus(user);
-        await this.bot.sendMessage(chatId, statusMessage, { parse_mode: "HTML" });
-
+        await this.bot.sendMessage(chatId, statusMessage, {
+          parse_mode: "HTML",
+        });
       } finally {
         connection.release();
       }
     } catch (error) {
-      console.error('Error handling status command:', error);
-      await this.bot.sendMessage(chatId, '❌ Terjadi kesalahan saat mengecek status.');
+      console.error("Error handling status command:", error);
+      await this.bot.sendMessage(
+        chatId,
+        "❌ Terjadi kesalahan saat mengecek status."
+      );
     }
   }
 
   async handleStatsCommand(chatId) {
     try {
-      console.log('📊 Generating stats...');
-      
+      console.log("📊 Generating stats...");
+
       const connection = await getConnection();
       try {
         // Get various statistics
-        const [totalCount] = await connection.execute('SELECT COUNT(*) as total FROM users');
+        const [totalCount] = await connection.execute(
+          "SELECT COUNT(*) as total FROM users"
+        );
         const [statusCounts] = await connection.execute(
-          'SELECT status, COUNT(*) as count FROM users GROUP BY status'
+          "SELECT status, COUNT(*) as count FROM users GROUP BY status"
         );
         const [todayCount] = await connection.execute(
-          'SELECT COUNT(*) as today FROM users WHERE DATE(created_at) = CURDATE()'
+          "SELECT COUNT(*) as today FROM users WHERE DATE(created_at) = CURDATE()"
         );
 
         let statsMessage = `📊 <b>STATISTIK REKRUTMEN OSIS</b>\n\n`;
         statsMessage += `📈 <b>TOTAL PENDAFTAR:</b> ${totalCount[0].total}\n`;
         statsMessage += `📅 <b>HARI INI:</b> ${todayCount[0].today}\n\n`;
-        
+
         statsMessage += `📋 <b>BERDASARKAN STATUS:</b>\n`;
-        statusCounts.forEach(stat => {
+        statusCounts.forEach((stat) => {
           const icon = this.getStatusIcon(stat.status);
-          statsMessage += `${icon} ${this.formatStatus(stat.status)}: ${stat.count}\n`;
+          statsMessage += `${icon} ${this.formatStatus(stat.status)}: ${
+            stat.count
+          }\n`;
         });
 
         // Calculate acceptance rate
-        const lolos = statusCounts.find(s => s.status === 'LOLOS')?.count || 0;
-        const ditolak = statusCounts.find(s => s.status === 'DITOLAK')?.count || 0;
+        const lolos =
+          statusCounts.find((s) => s.status === "LOLOS")?.count || 0;
+        const ditolak =
+          statusCounts.find((s) => s.status === "DITOLAK")?.count || 0;
         const processed = lolos + ditolak;
-        
+
         if (processed > 0) {
           const rate = Math.round((lolos / processed) * 100);
           statsMessage += `\n💯 <b>TINGKAT PENERIMAAN:</b> ${rate}%`;
         }
 
-        await this.bot.sendMessage(chatId, statsMessage, { parse_mode: "HTML" });
-
+        await this.bot.sendMessage(chatId, statsMessage, {
+          parse_mode: "HTML",
+        });
       } finally {
         connection.release();
       }
     } catch (error) {
-      console.error('Error generating stats:', error);
-      await this.bot.sendMessage(chatId, '❌ Terjadi kesalahan saat mengambil statistik.');
+      console.error("Error generating stats:", error);
+      await this.bot.sendMessage(
+        chatId,
+        "❌ Terjadi kesalahan saat mengambil statistik."
+      );
     }
   }
 
   formatUserStatus(user) {
     const statusIcon = this.getStatusIcon(user.status);
     const statusText = this.formatStatus(user.status);
-    
+
     let message = `📊 <b>STATUS PENDAFTAR</b>\n\n`;
     message += `👤 <b>Nama:</b> ${user.nama_lengkap}\n`;
     message += `🎫 <b>Tiket:</b> <code>${user.ticket}</code>\n`;
     message += `📊 <b>Status:</b> ${statusIcon} ${statusText}\n`;
-    
+
     // Show queue status explanation
-    if (user.status === 'PENDING_TERIMA') {
+    if (user.status === "PENDING_TERIMA") {
       message += `🔄 <b>Info:</b> Menunggu diproses (akan menjadi LOLOS saat /push)\n`;
-    } else if (user.status === 'PENDING_TOLAK') {
+    } else if (user.status === "PENDING_TOLAK") {
       message += `🔄 <b>Info:</b> Menunggu diproses (akan menjadi DITOLAK saat /push)\n`;
       if (user.catatan) {
         message += `💭 <b>Alasan:</b> ${user.catatan}\n`;
       }
-    } else if (user.status === 'LOLOS') {
+    } else if (user.status === "LOLOS") {
       message += `🎉 <b>Selamat!</b> Anda diterima dalam seleksi OSIS\n`;
-    } else if (user.status === 'DITOLAK') {
+    } else if (user.status === "DITOLAK") {
       message += `😔 <b>Maaf,</b> Anda belum berhasil dalam seleksi ini\n`;
       if (user.catatan) {
         message += `💭 <b>Alasan:</b> ${user.catatan}\n`;
       }
     }
-    
+
     message += `🏫 <b>Kelas:</b> ${user.kelas} - ${user.jurusan}\n`;
     message += `📅 <b>Daftar:</b> ${this.formatDate(user.created_at)}\n`;
-    
+
     if (user.updated_at && user.updated_at !== user.created_at) {
       message += `🔄 <b>Update:</b> ${this.formatDate(user.updated_at)}\n`;
     }
@@ -803,17 +930,18 @@ Butuh bantuan? Hubungi administrator.
     try {
       const ticket = input.trim();
       console.log(`✅ Marking for acceptance: ${ticket}`);
-      
+
       const connection = await getConnection();
       try {
         // Check if user exists
         const [users] = await connection.execute(
-          'SELECT * FROM users WHERE ticket = ?',
+          "SELECT * FROM users WHERE ticket = ?",
           [ticket]
         );
 
         if (users.length === 0) {
-          await this.bot.sendMessage(chatId, 
+          await this.bot.sendMessage(
+            chatId,
             `❌ <b>Tiket tidak ditemukan</b>\n\nTiket: <code>${ticket}</code>\n\nPastikan nomor tiket benar.`,
             { parse_mode: "HTML" }
           );
@@ -821,17 +949,19 @@ Butuh bantuan? Hubungi administrator.
         }
 
         const user = users[0];
-        
-        if (user.status === 'LOLOS') {
-          await this.bot.sendMessage(chatId, 
+
+        if (user.status === "LOLOS") {
+          await this.bot.sendMessage(
+            chatId,
             `ℹ️ <b>Pendaftar sudah diterima</b>\n\nNama: ${user.nama_lengkap}\nTiket: <code>${ticket}</code>`,
             { parse_mode: "HTML" }
           );
           return;
         }
 
-        if (user.status === 'PENDING_TERIMA') {
-          await this.bot.sendMessage(chatId, 
+        if (user.status === "PENDING_TERIMA") {
+          await this.bot.sendMessage(
+            chatId,
             `ℹ️ <b>Pendaftar sudah dalam antrian terima</b>\n\nNama: ${user.nama_lengkap}\nTiket: <code>${ticket}</code>\n\nGunakan <code>/push</code> untuk memproses semua antrian.`,
             { parse_mode: "HTML" }
           );
@@ -840,8 +970,8 @@ Butuh bantuan? Hubungi administrator.
 
         // Update status to PENDING_TERIMA (waiting for push)
         await connection.execute(
-          'UPDATE users SET status = ?, updated_at = NOW() WHERE ticket = ?',
-          ['PENDING_TERIMA', ticket]
+          "UPDATE users SET status = ?, updated_at = NOW() WHERE ticket = ?",
+          ["PENDING_TERIMA", ticket]
         );
 
         const pendingMessage = `
@@ -857,36 +987,41 @@ Butuh bantuan? Hubungi administrator.
 Gunakan <code>/push</code> untuk memproses semua antrian.
         `.trim();
 
-        await this.bot.sendMessage(chatId, pendingMessage, { parse_mode: "HTML" });
-
+        await this.bot.sendMessage(chatId, pendingMessage, {
+          parse_mode: "HTML",
+        });
       } finally {
         connection.release();
       }
     } catch (error) {
-      console.error('Error accepting registrant:', error);
-      await this.bot.sendMessage(chatId, '❌ Terjadi kesalahan saat memproses penerimaan.');
+      console.error("Error accepting registrant:", error);
+      await this.bot.sendMessage(
+        chatId,
+        "❌ Terjadi kesalahan saat memproses penerimaan."
+      );
     }
   }
 
   // REJECT COMMAND - Reject a registrant (now pending approval)
   async handleRejectCommand(chatId, input) {
     try {
-      const parts = input.trim().split(' ');
+      const parts = input.trim().split(" ");
       const ticket = parts[0];
-      const reason = parts.slice(1).join(' ') || 'Tidak memenuhi syarat';
-      
+      const reason = parts.slice(1).join(" ") || "Tidak memenuhi syarat";
+
       console.log(`❌ Marking for rejection: ${ticket}, reason: ${reason}`);
-      
+
       const connection = await getConnection();
       try {
         // Check if user exists
         const [users] = await connection.execute(
-          'SELECT * FROM users WHERE ticket = ?',
+          "SELECT * FROM users WHERE ticket = ?",
           [ticket]
         );
 
         if (users.length === 0) {
-          await this.bot.sendMessage(chatId, 
+          await this.bot.sendMessage(
+            chatId,
             `❌ <b>Tiket tidak ditemukan</b>\n\nTiket: <code>${ticket}</code>\n\nPastikan nomor tiket benar.`,
             { parse_mode: "HTML" }
           );
@@ -894,17 +1029,19 @@ Gunakan <code>/push</code> untuk memproses semua antrian.
         }
 
         const user = users[0];
-        
-        if (user.status === 'DITOLAK') {
-          await this.bot.sendMessage(chatId, 
+
+        if (user.status === "DITOLAK") {
+          await this.bot.sendMessage(
+            chatId,
             `ℹ️ <b>Pendaftar sudah ditolak sebelumnya</b>\n\nNama: ${user.nama_lengkap}\nTiket: <code>${ticket}</code>`,
             { parse_mode: "HTML" }
           );
           return;
         }
 
-        if (user.status === 'PENDING_TOLAK') {
-          await this.bot.sendMessage(chatId, 
+        if (user.status === "PENDING_TOLAK") {
+          await this.bot.sendMessage(
+            chatId,
             `ℹ️ <b>Pendaftar sudah dalam antrian tolak</b>\n\nNama: ${user.nama_lengkap}\nTiket: <code>${ticket}</code>\n\nGunakan <code>/push</code> untuk memproses semua antrian.`,
             { parse_mode: "HTML" }
           );
@@ -913,8 +1050,8 @@ Gunakan <code>/push</code> untuk memproses semua antrian.
 
         // Store rejection reason in a new field or use existing field
         await connection.execute(
-          'UPDATE users SET status = ?, keterangan = ?, updated_at = NOW() WHERE ticket = ?',
-          ['PENDING_TOLAK', reason, ticket]
+          "UPDATE users SET status = ?, keterangan = ?, updated_at = NOW() WHERE ticket = ?",
+          ["PENDING_TOLAK", reason, ticket]
         );
 
         const pendingMessage = `
@@ -931,39 +1068,44 @@ Gunakan <code>/push</code> untuk memproses semua antrian.
 Gunakan <code>/push</code> untuk memproses semua antrian.
         `.trim();
 
-        await this.bot.sendMessage(chatId, pendingMessage, { parse_mode: "HTML" });
-
+        await this.bot.sendMessage(chatId, pendingMessage, {
+          parse_mode: "HTML",
+        });
       } finally {
         connection.release();
       }
     } catch (error) {
-      console.error('Error rejecting registrant:', error);
-      await this.bot.sendMessage(chatId, '❌ Terjadi kesalahan saat memproses penolakan.');
+      console.error("Error rejecting registrant:", error);
+      await this.bot.sendMessage(
+        chatId,
+        "❌ Terjadi kesalahan saat memproses penolakan."
+      );
     }
   }
 
   // NEW PUSH COMMAND - Process all pending approvals
   async handlePushCommand(chatId) {
     try {
-      console.log('🚀 Processing all pending approvals...');
-      
+      console.log("🚀 Processing all pending approvals...");
+
       const connection = await getConnection();
       try {
         // Get all pending approvals
         const [pendingAccepts] = await connection.execute(
-          'SELECT * FROM users WHERE status = ?',
-          ['PENDING_TERIMA']
+          "SELECT * FROM users WHERE status = ?",
+          ["PENDING_TERIMA"]
         );
 
         const [pendingRejects] = await connection.execute(
-          'SELECT * FROM users WHERE status = ?',
-          ['PENDING_TOLAK']
+          "SELECT * FROM users WHERE status = ?",
+          ["PENDING_TOLAK"]
         );
 
         const totalPending = pendingAccepts.length + pendingRejects.length;
 
         if (totalPending === 0) {
-          await this.bot.sendMessage(chatId, 
+          await this.bot.sendMessage(
+            chatId,
             `ℹ️ <b>Tidak ada antrian untuk diproses</b>\n\nSemua pendaftar sudah diproses atau belum ada yang menunggu approval.`,
             { parse_mode: "HTML" }
           );
@@ -974,8 +1116,8 @@ Gunakan <code>/push</code> untuk memproses semua antrian.
         let acceptedCount = 0;
         for (const user of pendingAccepts) {
           await connection.execute(
-            'UPDATE users SET status = ?, updated_at = NOW() WHERE id = ?',
-            ['LOLOS', user.id]
+            "UPDATE users SET status = ?, updated_at = NOW() WHERE id = ?",
+            ["LOLOS", user.id]
           );
           acceptedCount++;
         }
@@ -984,8 +1126,8 @@ Gunakan <code>/push</code> untuk memproses semua antrian.
         let rejectedCount = 0;
         for (const user of pendingRejects) {
           await connection.execute(
-            'UPDATE users SET status = ?, updated_at = NOW() WHERE id = ?',
-            ['DITOLAK', user.id]
+            "UPDATE users SET status = ?, updated_at = NOW() WHERE id = ?",
+            ["DITOLAK", user.id]
           );
           rejectedCount++;
         }
@@ -1000,20 +1142,28 @@ Gunakan <code>/push</code> untuk memproses semua antrian.
         if (acceptedCount > 0) {
           summaryMessage += `✅ <b>DITERIMA:</b>\n`;
           pendingAccepts.forEach((user, index) => {
-            summaryMessage += `${index + 1}. ${user.nama_lengkap} (<code>${user.ticket}</code>)\n`;
+            summaryMessage += `${index + 1}. ${user.nama_lengkap} (<code>${
+              user.ticket
+            }</code>)\n`;
           });
-          summaryMessage += '\n';
+          summaryMessage += "\n";
         }
 
         if (rejectedCount > 0) {
           summaryMessage += `❌ <b>DITOLAK:</b>\n`;
           pendingRejects.forEach((user, index) => {
-            summaryMessage += `${index + 1}. ${user.nama_lengkap} (<code>${user.ticket}</code>)\n`;
-            summaryMessage += `   💬 ${user.keterangan || 'Tidak memenuhi syarat'}\n`;
+            summaryMessage += `${index + 1}. ${user.nama_lengkap} (<code>${
+              user.ticket
+            }</code>)\n`;
+            summaryMessage += `   💬 ${
+              user.keterangan || "Tidak memenuhi syarat"
+            }\n`;
           });
         }
 
-        summaryMessage += `\n📅 <b>Diproses:</b> ${this.formatDate(new Date())}\n`;
+        summaryMessage += `\n📅 <b>Diproses:</b> ${this.formatDate(
+          new Date()
+        )}\n`;
         summaryMessage += `🎉 Semua approval telah berhasil diproses!`;
 
         // Split message if too long
@@ -1024,15 +1174,19 @@ Gunakan <code>/push</code> untuk memproses semua antrian.
             await this.delay(500);
           }
         } else {
-          await this.bot.sendMessage(chatId, summaryMessage, { parse_mode: "HTML" });
+          await this.bot.sendMessage(chatId, summaryMessage, {
+            parse_mode: "HTML",
+          });
         }
-
       } finally {
         connection.release();
       }
     } catch (error) {
-      console.error('Error processing push:', error);
-      await this.bot.sendMessage(chatId, '❌ Terjadi kesalahan saat memproses push approval.');
+      console.error("Error processing push:", error);
+      await this.bot.sendMessage(
+        chatId,
+        "❌ Terjadi kesalahan saat memproses push approval."
+      );
     }
   }
 
@@ -1040,7 +1194,7 @@ Gunakan <code>/push</code> untuk memproses semua antrian.
   async handleSearchCommand(chatId, keyword) {
     try {
       console.log(`🔍 Searching for: ${keyword}`);
-      
+
       const connection = await getConnection();
       try {
         const searchQuery = `%${keyword.trim()}%`;
@@ -1057,7 +1211,8 @@ Gunakan <code>/push</code> untuk memproses semua antrian.
         );
 
         if (users.length === 0) {
-          await this.bot.sendMessage(chatId, 
+          await this.bot.sendMessage(
+            chatId,
             `🔍 <b>Hasil Pencarian</b>\n\nTidak ada pendaftar yang ditemukan dengan kata kunci: <b>${keyword}</b>\n\nCoba gunakan kata kunci lain.`,
             { parse_mode: "HTML" }
           );
@@ -1071,36 +1226,46 @@ Gunakan <code>/push</code> untuk memproses semua antrian.
           searchMessage += `${index + 1}. <b>${user.nama_lengkap}</b>\n`;
           searchMessage += `   🎫 <code>${user.ticket}</code>\n`;
           searchMessage += `   🏫 ${user.kelas} - ${user.jurusan}\n`;
-          searchMessage += `   📊 ${statusIcon} ${this.formatStatus(user.status)}\n`;
+          searchMessage += `   📊 ${statusIcon} ${this.formatStatus(
+            user.status
+          )}\n`;
           searchMessage += `   📅 ${this.formatDate(user.created_at)}\n\n`;
         });
 
         searchMessage += `💡 Gunakan <code>/detail [tiket]</code> untuk info lengkap.`;
 
-        await this.bot.sendMessage(chatId, searchMessage, { parse_mode: "HTML" });
-
+        await this.bot.sendMessage(chatId, searchMessage, {
+          parse_mode: "HTML",
+        });
       } finally {
         connection.release();
       }
     } catch (error) {
-      console.error('Error searching registrants:', error);
-      await this.bot.sendMessage(chatId, '❌ Terjadi kesalahan saat melakukan pencarian.');
+      console.error("Error searching registrants:", error);
+      await this.bot.sendMessage(
+        chatId,
+        "❌ Terjadi kesalahan saat melakukan pencarian."
+      );
     }
   }
 
-  // LIST COMMAND - List all registrants  
+  // LIST COMMAND - List all registrants
   async handleListCommand(chatId) {
     try {
-      console.log('📋 Generating registrant list...');
-      
+      console.log("📋 Generating registrant list...");
+
       const connection = await getConnection();
       try {
         const [users] = await connection.execute(
-          'SELECT * FROM users ORDER BY created_at DESC LIMIT 20'
+          "SELECT * FROM users ORDER BY created_at DESC LIMIT 20"
         );
 
         if (users.length === 0) {
-          await this.bot.sendMessage(chatId, '📋 <b>Belum ada pendaftar terdaftar.</b>', { parse_mode: "HTML" });
+          await this.bot.sendMessage(
+            chatId,
+            "📋 <b>Belum ada pendaftar terdaftar.</b>",
+            { parse_mode: "HTML" }
+          );
           return;
         }
 
@@ -1111,7 +1276,9 @@ Gunakan <code>/push</code> untuk memproses semua antrian.
           listMessage += `${index + 1}. <b>${user.nama_lengkap}</b>\n`;
           listMessage += `   🎫 <code>${user.ticket}</code>\n`;
           listMessage += `   🏫 ${user.kelas} - ${user.jurusan}\n`;
-          listMessage += `   📊 ${statusIcon} ${this.formatStatus(user.status)}\n`;
+          listMessage += `   📊 ${statusIcon} ${this.formatStatus(
+            user.status
+          )}\n`;
           listMessage += `   📅 ${this.formatDate(user.created_at)}\n\n`;
         });
 
@@ -1126,15 +1293,19 @@ Gunakan <code>/push</code> untuk memproses semua antrian.
             await this.delay(500);
           }
         } else {
-          await this.bot.sendMessage(chatId, listMessage, { parse_mode: "HTML" });
+          await this.bot.sendMessage(chatId, listMessage, {
+            parse_mode: "HTML",
+          });
         }
-
       } finally {
         connection.release();
       }
     } catch (error) {
-      console.error('Error generating list:', error);
-      await this.bot.sendMessage(chatId, '❌ Terjadi kesalahan saat mengambil daftar pendaftar.');
+      console.error("Error generating list:", error);
+      await this.bot.sendMessage(
+        chatId,
+        "❌ Terjadi kesalahan saat mengambil daftar pendaftar."
+      );
     }
   }
 
@@ -1142,17 +1313,18 @@ Gunakan <code>/push</code> untuk memproses semua antrian.
   async handleDetailCommand(chatId, ticket) {
     try {
       console.log(`📄 Getting details for ticket: ${ticket}`);
-      
+
       const connection = await getConnection();
       try {
         // Get user data
         const [users] = await connection.execute(
-          'SELECT * FROM users WHERE ticket = ?',
+          "SELECT * FROM users WHERE ticket = ?",
           [ticket.trim()]
         );
 
         if (users.length === 0) {
-          await this.bot.sendMessage(chatId, 
+          await this.bot.sendMessage(
+            chatId,
             `❌ <b>Tiket tidak ditemukan</b>\n\nTiket: <code>${ticket}</code>`,
             { parse_mode: "HTML" }
           );
@@ -1163,30 +1335,35 @@ Gunakan <code>/push</code> untuk memproses semua antrian.
 
         // Get related data
         const [organisasi] = await connection.execute(
-          'SELECT * FROM organisasi WHERE user_id = ?',
+          "SELECT * FROM organisasi WHERE user_id = ?",
           [user.id]
         );
 
         const [prestasi] = await connection.execute(
-          'SELECT * FROM prestasi WHERE user_id = ?',
+          "SELECT * FROM prestasi WHERE user_id = ?",
           [user.id]
         );
 
         const [divisi] = await connection.execute(
-          'SELECT * FROM divisi WHERE user_id = ?',
+          "SELECT * FROM divisi WHERE user_id = ?",
           [user.id]
         );
 
         // Create DETAIL-specific message (different from registration notification)
-        const detailMessage = this.createDetailMessage(user, organisasi, prestasi, divisi);
-        
+        const detailMessage = this.createDetailMessage(
+          user,
+          organisasi,
+          prestasi,
+          divisi
+        );
+
         // Prepare data for file collection
         const detailData = {
           ...user,
           organisasi: organisasi,
           prestasi: prestasi,
-          divisi: divisi.map(d => d.nama_divisi),
-          foto_path: user.foto
+          divisi: divisi.map((d) => d.nama_divisi),
+          foto_path: user.foto,
         };
 
         // Get media files
@@ -1196,15 +1373,19 @@ Gunakan <code>/push</code> untuk memproses semua antrian.
         if (mediaFiles.length > 0) {
           await this.sendNotification(detailMessage, mediaFiles, detailData);
         } else {
-          await this.bot.sendMessage(chatId, detailMessage, { parse_mode: "HTML" });
+          await this.bot.sendMessage(chatId, detailMessage, {
+            parse_mode: "HTML",
+          });
         }
-
       } finally {
         connection.release();
       }
     } catch (error) {
-      console.error('Error getting details:', error);
-      await this.bot.sendMessage(chatId, '❌ Terjadi kesalahan saat mengambil detail pendaftar.');
+      console.error("Error getting details:", error);
+      await this.bot.sendMessage(
+        chatId,
+        "❌ Terjadi kesalahan saat mengambil detail pendaftar."
+      );
     }
   }
 
@@ -1212,51 +1393,62 @@ Gunakan <code>/push</code> untuk memproses semua antrian.
   createDetailMessage(user, organisasi, prestasi, divisi) {
     const statusIcon = this.getStatusIcon(user.status);
     const statusText = this.formatStatus(user.status);
-    
+
     let message = `📋 <b>DETAIL LENGKAP PENDAFTAR</b>\n\n`;
 
     // Personal Information
     message += `👤 <b>DATA PRIBADI</b>\n`;
-    message += `┣ 📝 Nama Lengkap: <b>${user.nama_lengkap || 'N/A'}</b>\n`;
-    message += `┣ 🏷 Nama Panggilan: ${user.nama_panggilan || 'N/A'}\n`;
-    message += `┣ 🏫 Kelas: ${user.kelas || 'N/A'} - ${user.jurusan || 'N/A'}\n`;
-    
+    message += `┣ 📝 Nama Lengkap: <b>${user.nama_lengkap || "N/A"}</b>\n`;
+    message += `┣ 🏷 Nama Panggilan: ${user.nama_panggilan || "N/A"}\n`;
+    message += `┣ 🏫 Kelas: ${user.kelas || "N/A"} - ${
+      user.jurusan || "N/A"
+    }\n`;
+
     // Format birth date properly
-    const birthDate = user.tanggal_lahir ? 
-      new Date(user.tanggal_lahir).toLocaleDateString("id-ID", {
-        day: "numeric", month: "long", year: "numeric"
-      }) : "N/A";
-    message += `┣ 📍 TTL: ${user.tempat_lahir || 'N/A'}, ${birthDate}\n`;
-    message += `┣ ⚧ Jenis Kelamin: ${user.jenis_kelamin || 'N/A'}\n`;
-    message += `┣ 🕌 Agama: ${user.agama || 'N/A'}\n`;
-    message += `┣ 📱 No. HP: ${user.nomor_telepon ? `<code>${user.nomor_telepon}</code>` : 'N/A'}\n`;
-    message += `┣ 📧 Email: ${user.email || 'N/A'}\n`;
-    message += `┣ 🏠 Alamat: ${user.alamat || 'N/A'}\n`;
-    message += `┣ 🎨 Hobi: ${user.hobi || 'N/A'}\n`;
-    message += `┗ 💭 Motto: ${user.motto || 'N/A'}\n\n`;
+    const birthDate = user.tanggal_lahir
+      ? new Date(user.tanggal_lahir).toLocaleDateString("id-ID", {
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        })
+      : "N/A";
+    message += `┣ 📍 TTL: ${user.tempat_lahir || "N/A"}, ${birthDate}\n`;
+    message += `┣ ⚧ Jenis Kelamin: ${user.jenis_kelamin || "N/A"}\n`;
+    message += `┣ 🕌 Agama: ${user.agama || "N/A"}\n`;
+    message += `┣ 📱 No. HP: ${
+      user.nomor_telepon ? `<code>${user.nomor_telepon}</code>` : "N/A"
+    }\n`;
+    message += `┣ 📧 Email: ${user.email || "N/A"}\n`;
+    message += `┣ 🏠 Alamat: ${user.alamat || "N/A"}\n`;
+    message += `┣ 🎨 Hobi: ${user.hobi || "N/A"}\n`;
+    message += `┗ 💭 Motto: ${user.motto || "N/A"}\n\n`;
 
     // Organization experience
     if (organisasi && organisasi.length > 0) {
       message += `🏛 <b>PENGALAMAN ORGANISASI</b>\n`;
       organisasi.forEach((org, index) => {
-        message += `┣ ${index + 1}. <b>${org.nama_organisasi || 'N/A'}</b>\n`;
-        message += `┃   📋 Jabatan: ${org.jabatan || 'N/A'}\n`;
-        message += `┃   📅 Tahun: ${org.tahun || 'N/A'}\n`;
-        message += `┃   📜 Sertifikat: ${org.sertifikat_path ? '✅ Ada' : '❌ Tidak Ada'}\n`;
+        message += `┣ ${index + 1}. <b>${org.nama_organisasi || "N/A"}</b>\n`;
+        message += `┃   📋 Jabatan: ${org.jabatan || "N/A"}\n`;
+        message += `┃   📅 Tahun: ${org.tahun || "N/A"}\n`;
+        message += `┃   📜 Sertifikat: ${
+          org.sertifikat_path ? "✅ Ada" : "❌ Tidak Ada"
+        }\n`;
       });
-      message += '\n';
+      message += "\n";
     }
-    
+
     // Achievements
     if (prestasi && prestasi.length > 0) {
       message += `🏆 <b>PRESTASI</b>\n`;
       prestasi.forEach((prest, index) => {
-        message += `┣ ${index + 1}. <b>${prest.nama_prestasi || 'N/A'}</b>\n`;
-        message += `┃   🎖 Tingkat: ${prest.tingkat || 'N/A'}\n`;
-        message += `┃   📅 Tahun: ${prest.tahun || 'N/A'}\n`;
-        message += `┃   📜 Sertifikat: ${prest.sertifikat_path ? '✅ Ada' : '❌ Tidak Ada'}\n`;
+        message += `┣ ${index + 1}. <b>${prest.nama_prestasi || "N/A"}</b>\n`;
+        message += `┃   🎖 Tingkat: ${prest.tingkat || "N/A"}\n`;
+        message += `┃   📅 Tahun: ${prest.tahun || "N/A"}\n`;
+        message += `┃   📜 Sertifikat: ${
+          prest.sertifikat_path ? "✅ Ada" : "❌ Tidak Ada"
+        }\n`;
       });
-      message += '\n';
+      message += "\n";
     }
 
     // Divisions
@@ -1265,7 +1457,7 @@ Gunakan <code>/push</code> untuk memproses semua antrian.
       divisi.forEach((div, index) => {
         message += `${index + 1}. <b>${div.nama_divisi.toUpperCase()}</b>\n`;
       });
-      message += '\n';
+      message += "\n";
     }
 
     // Motivation
@@ -1279,14 +1471,14 @@ Gunakan <code>/push</code> untuk memproses semua antrian.
     message += `┣ 🎫 Tiket: <code>${user.ticket}</code>\n`;
     message += `┣ 📊 Status: ${statusIcon} <b>${statusText}</b>\n`;
     message += `┣ 📅 Terdaftar: ${this.formatDate(user.created_at)}\n`;
-    
+
     if (user.updated_at && user.updated_at !== user.created_at) {
       message += `┣ 🔄 Diperbarui: ${this.formatDate(user.updated_at)}\n`;
     }
     message += `┗ 🖼 Foto & sertifikat dikirim terpisah\n\n`;
 
     // Admin actions (if needed)
-    if (user.status === 'PENDING') {
+    if (user.status === "PENDING") {
       message += `⚡ <b>AKSI ADMIN</b>\n`;
       message += `┣ ✅ <code>/terima ${user.ticket}</code>\n`;
       message += `┗ ❌ <code>/tolak ${user.ticket} [alasan]</code>`;
@@ -1298,36 +1490,47 @@ Gunakan <code>/push</code> untuk memproses semua antrian.
   // EXCEL COMMAND - Export to Excel using excel-simple.js
   async handleExcelCommand(chatId) {
     try {
-      console.log('📊 Generating Excel export...');
-      
+      console.log("📊 Generating Excel export...");
+
       // Import excel-simple module
-      const { exportToExcel } = require('./excel-simple');
-      
+      const { exportToExcel } = require("./excel-simple");
+
       const result = await exportToExcel();
-      console.log('📊 Excel export result:', result);
-      
-      if (result && result.filePath && await fs.pathExists(result.filePath)) {
+      console.log("📊 Excel export result:", result);
+
+      if (result && result.filePath && (await fs.pathExists(result.filePath))) {
         await this.bot.sendDocument(chatId, result.filePath, {
-          caption: `📊 <b>EXPORT DATA OSIS</b>\n\n📅 Generated: ${this.formatDate(new Date())}\n📁 File: ${result.fileName}\n📊 Records: ${result.totalRecords}\n💾 Size: ${result.fileSize}`,
-          parse_mode: "HTML"
+          caption: `📊 <b>EXPORT DATA OSIS</b>\n\n📅 Generated: ${this.formatDate(
+            new Date()
+          )}\n📁 File: ${result.fileName}\n📊 Records: ${
+            result.totalRecords
+          }\n💾 Size: ${result.fileSize}`,
+          parse_mode: "HTML",
         });
-        
+
         // Clean up file after sending
         setTimeout(async () => {
           try {
             await fs.remove(result.filePath);
             console.log(`🗑️ Cleaned up Excel file: ${result.filePath}`);
           } catch (error) {
-            console.warn(`Warning: Could not clean up Excel file: ${error.message}`);
+            console.warn(
+              `Warning: Could not clean up Excel file: ${error.message}`
+            );
           }
         }, 60000); // Clean up after 1 minute
-        
       } else {
-        await this.bot.sendMessage(chatId, '❌ File Excel tidak ditemukan atau gagal dibuat.');
+        await this.bot.sendMessage(
+          chatId,
+          "❌ File Excel tidak ditemukan atau gagal dibuat."
+        );
       }
     } catch (error) {
-      console.error('Error generating Excel:', error);
-      await this.bot.sendMessage(chatId, '❌ Terjadi kesalahan saat membuat file Excel.');
+      console.error("Error generating Excel:", error);
+      await this.bot.sendMessage(
+        chatId,
+        "❌ Terjadi kesalahan saat membuat file Excel."
+      );
     }
   }
 
@@ -1335,17 +1538,18 @@ Gunakan <code>/push</code> untuk memproses semua antrian.
   async handleDeleteCommand(chatId, ticket) {
     try {
       console.log(`🗑️ Deleting ticket: ${ticket}`);
-      
+
       const connection = await getConnection();
       try {
         // Check if user exists
         const [users] = await connection.execute(
-          'SELECT * FROM users WHERE ticket = ?',
+          "SELECT * FROM users WHERE ticket = ?",
           [ticket.trim()]
         );
 
         if (users.length === 0) {
-          await this.bot.sendMessage(chatId, 
+          await this.bot.sendMessage(
+            chatId,
             `❌ <b>Tiket tidak ditemukan</b>\n\nTiket: <code>${ticket}</code>`,
             { parse_mode: "HTML" }
           );
@@ -1355,12 +1559,20 @@ Gunakan <code>/push</code> untuk memproses semua antrian.
         const user = users[0];
 
         // Delete related records first
-        await connection.execute('DELETE FROM organisasi WHERE user_id = ?', [user.id]);
-        await connection.execute('DELETE FROM prestasi WHERE user_id = ?', [user.id]);
-        await connection.execute('DELETE FROM divisi WHERE user_id = ?', [user.id]);
-        
+        await connection.execute("DELETE FROM organisasi WHERE user_id = ?", [
+          user.id,
+        ]);
+        await connection.execute("DELETE FROM prestasi WHERE user_id = ?", [
+          user.id,
+        ]);
+        await connection.execute("DELETE FROM divisi WHERE user_id = ?", [
+          user.id,
+        ]);
+
         // Delete main user record
-        await connection.execute('DELETE FROM users WHERE ticket = ?', [ticket.trim()]);
+        await connection.execute("DELETE FROM users WHERE ticket = ?", [
+          ticket.trim(),
+        ]);
 
         const deleteMessage = `
 🗑️ <b>PENDAFTAR DIHAPUS</b>
@@ -1373,89 +1585,110 @@ Gunakan <code>/push</code> untuk memproses semua antrian.
 ⚠️ Data pendaftar dan semua file terkait telah dihapus permanen.
         `.trim();
 
-        await this.bot.sendMessage(chatId, deleteMessage, { parse_mode: "HTML" });
-
+        await this.bot.sendMessage(chatId, deleteMessage, {
+          parse_mode: "HTML",
+        });
       } finally {
         connection.release();
       }
     } catch (error) {
-      console.error('Error deleting registrant:', error);
-      await this.bot.sendMessage(chatId, '❌ Terjadi kesalahan saat menghapus pendaftar.');
+      console.error("Error deleting registrant:", error);
+      await this.bot.sendMessage(
+        chatId,
+        "❌ Terjadi kesalahan saat menghapus pendaftar."
+      );
     }
   }
 
   // BACKUP COMMAND - Create database backup
   async handleBackupCommand(chatId) {
     try {
-      console.log('💾 Creating database backup...');
-      
-      await this.bot.sendMessage(chatId, '💾 <b>Memulai backup database...</b>\n⏳ Harap tunggu...', { parse_mode: "HTML" });
-      
+      console.log("💾 Creating database backup...");
+
+      await this.bot.sendMessage(
+        chatId,
+        "💾 <b>Memulai backup database...</b>\n⏳ Harap tunggu...",
+        { parse_mode: "HTML" }
+      );
+
       // Import backup utility
-      const { createDatabaseBackup } = require('./db-backup-fixed');
-      
+      const { createDatabaseBackup } = require("./db-backup-fixed");
+
       const backupResult = await createDatabaseBackup();
-      
+
       if (backupResult && backupResult.success) {
         // Send backup file
         await this.bot.sendDocument(chatId, backupResult.filePath, {
-          caption: `💾 <b>DATABASE BACKUP BERHASIL</b>\n\n📁 File: ${backupResult.fileName}\n📊 Size: ${this.formatFileSize(backupResult.size)}\n📅 Created: ${this.formatDate(backupResult.timestamp)}\n\n⚠️ File backup berisi data sensitif. Simpan dengan aman!`,
-          parse_mode: "HTML"
+          caption: `💾 <b>DATABASE BACKUP BERHASIL</b>\n\n📁 File: ${
+            backupResult.fileName
+          }\n📊 Size: ${this.formatFileSize(
+            backupResult.size
+          )}\n📅 Created: ${this.formatDate(
+            backupResult.timestamp
+          )}\n\n⚠️ File backup berisi data sensitif. Simpan dengan aman!`,
+          parse_mode: "HTML",
         });
-        
+
         // Clean up old backups
         setTimeout(async () => {
           try {
-            const { backupManager } = require('./db-backup-fixed');
+            const { backupManager } = require("./db-backup-fixed");
             await backupManager.cleanOldBackups(3); // Keep 3 recent backups
           } catch (error) {
             console.warn("⚠️ Could not clean old backups:", error.message);
           }
         }, 5000);
-        
       } else {
-        await this.bot.sendMessage(chatId, '❌ Gagal membuat backup database. Coba lagi nanti.', { parse_mode: "HTML" });
+        await this.bot.sendMessage(
+          chatId,
+          "❌ Gagal membuat backup database. Coba lagi nanti.",
+          { parse_mode: "HTML" }
+        );
       }
     } catch (error) {
-      console.error('Error creating backup:', error);
-      await this.bot.sendMessage(chatId, `❌ Terjadi kesalahan saat membuat backup database:\n\n<code>${error.message}</code>`, { parse_mode: "HTML" });
+      console.error("Error creating backup:", error);
+      await this.bot.sendMessage(
+        chatId,
+        `❌ Terjadi kesalahan saat membuat backup database:\n\n<code>${error.message}</code>`,
+        { parse_mode: "HTML" }
+      );
     }
   }
 
   // Utility method to split long messages
   splitMessage(message, maxLength = 4000) {
     const messages = [];
-    let current = '';
-    const lines = message.split('\n');
-    
+    let current = "";
+    const lines = message.split("\n");
+
     for (const line of lines) {
-      if ((current + line + '\n').length > maxLength) {
+      if ((current + line + "\n").length > maxLength) {
         if (current) {
           messages.push(current.trim());
-          current = '';
+          current = "";
         }
       }
-      current += line + '\n';
+      current += line + "\n";
     }
-    
+
     if (current) {
       messages.push(current.trim());
     }
-    
+
     return messages;
   }
 
   formatUserStatus(user) {
     const statusIcon = this.getStatusIcon(user.status);
     const statusText = this.formatStatus(user.status);
-    
+
     let message = `📊 <b>STATUS PENDAFTAR</b>\n\n`;
     message += `👤 <b>Nama:</b> ${user.nama_lengkap}\n`;
     message += `🎫 <b>Tiket:</b> <code>${user.ticket}</code>\n`;
     message += `📊 <b>Status:</b> ${statusIcon} ${statusText}\n`;
     message += `🏫 <b>Kelas:</b> ${user.kelas} - ${user.jurusan}\n`;
     message += `📅 <b>Daftar:</b> ${this.formatDate(user.created_at)}\n`;
-    
+
     if (user.updated_at && user.updated_at !== user.created_at) {
       message += `🔄 <b>Update:</b> ${this.formatDate(user.updated_at)}\n`;
     }
@@ -1479,5 +1712,5 @@ async function sendTelegramNotification(data) {
 module.exports = {
   initTelegramBot,
   sendTelegramNotification,
-  botManager
+  botManager,
 };

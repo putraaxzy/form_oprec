@@ -22,37 +22,44 @@ class DatabaseManager {
       charset: "utf8mb4",
       timezone: "+07:00", // Indonesia timezone
       waitForConnections: true,
-      connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT) || 20,
+      connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT) || 50, // Increased from 20 to 50
       queueLimit: 0,
-      acquireTimeout: 60000, // 60 seconds
-      timeout: 60000,
+      acquireTimeout: 30000, // Reduced from 60s to 30s for faster timeout
+      timeout: 30000, // Reduced from 60s to 30s
       reconnect: true,
+      // Performance optimizations
+      multipleStatements: false,
+      supportBigNumbers: true,
+      bigNumberStrings: false,
+      dateStrings: false,
       // SSL configuration if needed
-      ssl: process.env.DB_SSL === "true" ? {
-        rejectUnauthorized: false
-      } : false,
+      ssl:
+        process.env.DB_SSL === "true"
+          ? {
+              rejectUnauthorized: false,
+            }
+          : false,
     };
   }
 
   async initialize() {
     try {
       console.log("🔄 Initializing database connection...");
-      
+
       // Create connection pool
       this.pool = mysql.createPool(this.config);
-      
+
       // Test connection
       await this.testConnection();
-      
+
       // Initialize database schema
       await this.initializeSchema();
-      
+
       // Setup event listeners
       this.setupEventListeners();
-      
+
       this.isConnected = true;
       console.log("✅ Database initialized successfully");
-      
     } catch (error) {
       console.error("❌ Database initialization failed:", error.message);
       await this.handleConnectionError(error);
@@ -63,7 +70,9 @@ class DatabaseManager {
     const connection = await this.pool.getConnection();
     try {
       await connection.ping();
-      console.log(`✅ Database connection established - ${this.config.host}:${this.config.port}`);
+      console.log(
+        `✅ Database connection established - ${this.config.host}:${this.config.port}`
+      );
     } finally {
       connection.release();
     }
@@ -73,9 +82,13 @@ class DatabaseManager {
     if (this.retryCount < this.maxRetries) {
       this.retryCount++;
       const delay = Math.pow(2, this.retryCount) * 1000; // Exponential backoff
-      
-      console.log(`🔄 Retrying database connection in ${delay/1000}s... (${this.retryCount}/${this.maxRetries})`);
-      
+
+      console.log(
+        `🔄 Retrying database connection in ${delay / 1000}s... (${
+          this.retryCount
+        }/${this.maxRetries})`
+      );
+
       setTimeout(() => {
         this.initialize();
       }, delay);
@@ -87,15 +100,17 @@ class DatabaseManager {
 
   setupEventListeners() {
     if (this.pool) {
-      this.pool.on('connection', (connection) => {
-        console.log(`📊 New database connection established: ${connection.threadId}`);
+      this.pool.on("connection", (connection) => {
+        console.log(
+          `📊 New database connection established: ${connection.threadId}`
+        );
       });
 
-      this.pool.on('error', (error) => {
-        console.error('❌ Database pool error:', error.message);
-        
-        if (error.code === 'PROTOCOL_CONNECTION_LOST') {
-          console.log('🔄 Database connection lost, reinitializing...');
+      this.pool.on("error", (error) => {
+        console.error("❌ Database pool error:", error.message);
+
+        if (error.code === "PROTOCOL_CONNECTION_LOST") {
+          console.log("🔄 Database connection lost, reinitializing...");
           this.isConnected = false;
           this.initialize();
         }
@@ -105,10 +120,10 @@ class DatabaseManager {
 
   async initializeSchema() {
     const connection = await this.pool.getConnection();
-    
+
     try {
       console.log("🏗️ Setting up database schema...");
-      
+
       // Create users table with enhanced structure
       await connection.execute(`
         CREATE TABLE IF NOT EXISTS users (
@@ -236,15 +251,14 @@ class DatabaseManager {
 
       // Insert default settings
       await this.insertDefaultSettings(connection);
-      
+
       // Create stored procedures for common queries - DISABLED due to MySQL2 compatibility
       // await this.createStoredProcedures(connection);
-      
+
       // Create views for reporting
       await this.createViews(connection);
-      
+
       console.log("✅ Database schema initialized successfully");
-      
     } catch (error) {
       console.error("❌ Schema initialization error:", error);
       throw error;
@@ -256,42 +270,45 @@ class DatabaseManager {
   async insertDefaultSettings(connection) {
     const defaultSettings = [
       {
-        key: 'registration_open',
-        value: 'true',
-        description: 'Whether registration is currently open'
+        key: "registration_open",
+        value: "true",
+        description: "Whether registration is currently open",
       },
       {
-        key: 'max_file_size',
-        value: '52428800',
-        description: 'Maximum file size in bytes (50MB default)'
+        key: "max_file_size",
+        value: "52428800",
+        description: "Maximum file size in bytes (50MB default)",
       },
       {
-        key: 'allowed_file_types',
-        value: 'jpg,jpeg,png,pdf',
-        description: 'Allowed file extensions for uploads'
+        key: "allowed_file_types",
+        value: "jpg,jpeg,png,pdf",
+        description: "Allowed file extensions for uploads",
       },
       {
-        key: 'telegram_notifications',
-        value: 'true',
-        description: 'Enable/disable Telegram notifications'
+        key: "telegram_notifications",
+        value: "true",
+        description: "Enable/disable Telegram notifications",
       },
       {
-        key: 'auto_backup',
-        value: 'true',
-        description: 'Enable automatic database backups'
+        key: "auto_backup",
+        value: "true",
+        description: "Enable automatic database backups",
       },
       {
-        key: 'backup_retention_days',
-        value: '30',
-        description: 'Number of days to keep backup files'
-      }
+        key: "backup_retention_days",
+        value: "30",
+        description: "Number of days to keep backup files",
+      },
     ];
 
     for (const setting of defaultSettings) {
-      await connection.execute(`
+      await connection.execute(
+        `
         INSERT IGNORE INTO system_settings (setting_key, setting_value, description)
         VALUES (?, ?, ?)
-      `, [setting.key, setting.value, setting.description]);
+      `,
+        [setting.key, setting.value, setting.description]
+      );
     }
   }
 
@@ -381,11 +398,11 @@ class DatabaseManager {
 
     try {
       const connection = await this.pool.getConnection();
-      
+
       // Add query logging for development
-      if (process.env.NODE_ENV === 'development') {
+      if (process.env.NODE_ENV === "development") {
         const originalExecute = connection.execute;
-        connection.execute = function(sql, params) {
+        connection.execute = function (sql, params) {
           console.log(`📊 SQL Query: ${sql.substring(0, 100)}...`);
           if (params && params.length > 0) {
             console.log(`📊 Parameters:`, params.slice(0, 5)); // Log first 5 params
@@ -406,7 +423,7 @@ class DatabaseManager {
     const connection = await this.getConnection();
     try {
       const [users] = await connection.execute(
-        'SELECT * FROM user_complete_view WHERE ticket = ?',
+        "SELECT * FROM user_complete_view WHERE ticket = ?",
         [ticket]
       );
       return users[0] || null;
@@ -418,7 +435,7 @@ class DatabaseManager {
   async getUserStats() {
     const connection = await this.getConnection();
     try {
-      const [stats] = await connection.execute('CALL GetUserStats()');
+      const [stats] = await connection.execute("CALL GetUserStats()");
       return stats[0][0];
     } finally {
       connection.release();
@@ -428,7 +445,7 @@ class DatabaseManager {
   async getDivisionStats() {
     const connection = await this.getConnection();
     try {
-      const [stats] = await connection.execute('CALL GetDivisionStats()');
+      const [stats] = await connection.execute("CALL GetDivisionStats()");
       return stats[0];
     } finally {
       connection.release();
@@ -439,32 +456,35 @@ class DatabaseManager {
     const connection = await this.getConnection();
     try {
       await connection.beginTransaction();
-      
+
       // Get current status
       const [users] = await connection.execute(
-        'SELECT id, status FROM users WHERE ticket = ?',
+        "SELECT id, status FROM users WHERE ticket = ?",
         [ticket]
       );
-      
+
       if (users.length === 0) {
-        throw new Error('User not found');
+        throw new Error("User not found");
       }
-      
+
       const user = users[0];
       const previousStatus = user.status;
-      
+
       // Update user status
       await connection.execute(
-        'UPDATE users SET status = ?, updated_by = ? WHERE ticket = ?',
-        [newStatus, adminName || 'SYSTEM', ticket]
+        "UPDATE users SET status = ?, updated_by = ? WHERE ticket = ?",
+        [newStatus, adminName || "SYSTEM", ticket]
       );
-      
+
       // Log the action
-      await connection.execute(`
+      await connection.execute(
+        `
         INSERT INTO admin_logs (user_id, ticket, action, previous_status, new_status, reason, admin_name)
         VALUES (?, ?, 'UPDATE', ?, ?, ?, ?)
-      `, [user.id, ticket, previousStatus, newStatus, reason, adminName]);
-      
+      `,
+        [user.id, ticket, previousStatus, newStatus, reason, adminName]
+      );
+
       await connection.commit();
       return true;
     } catch (error) {
@@ -475,28 +495,28 @@ class DatabaseManager {
     }
   }
 
-  async searchUsers(query, type = 'all', status = null) {
+  async searchUsers(query, type = "all", status = null) {
     const connection = await this.getConnection();
     try {
-      let sql = 'SELECT * FROM user_complete_view WHERE 1=1';
+      let sql = "SELECT * FROM user_complete_view WHERE 1=1";
       const params = [];
-      
+
       // Add search conditions based on type
       switch (type) {
-        case 'name':
-          sql += ' AND (nama_lengkap LIKE ? OR nama_panggilan LIKE ?)';
+        case "name":
+          sql += " AND (nama_lengkap LIKE ? OR nama_panggilan LIKE ?)";
           params.push(`%${query}%`, `%${query}%`);
           break;
-        case 'ticket':
-          sql += ' AND ticket LIKE ?';
+        case "ticket":
+          sql += " AND ticket LIKE ?";
           params.push(`%${query}%`);
           break;
-        case 'class':
-          sql += ' AND (kelas LIKE ? OR jurusan LIKE ?)';
+        case "class":
+          sql += " AND (kelas LIKE ? OR jurusan LIKE ?)";
           params.push(`%${query}%`, `%${query}%`);
           break;
-        case 'division':
-          sql += ' AND divisi_list LIKE ?';
+        case "division":
+          sql += " AND divisi_list LIKE ?";
           params.push(`%${query}%`);
           break;
         default: // 'all'
@@ -505,17 +525,24 @@ class DatabaseManager {
             ticket LIKE ? OR kelas LIKE ? OR jurusan LIKE ? OR
             divisi_list LIKE ?
           )`;
-          params.push(`%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`);
+          params.push(
+            `%${query}%`,
+            `%${query}%`,
+            `%${query}%`,
+            `%${query}%`,
+            `%${query}%`,
+            `%${query}%`
+          );
       }
-      
+
       // Add status filter if specified
       if (status) {
-        sql += ' AND status = ?';
+        sql += " AND status = ?";
         params.push(status);
       }
-      
-      sql += ' ORDER BY created_at DESC LIMIT 50';
-      
+
+      sql += " ORDER BY created_at DESC LIMIT 50";
+
       const [users] = await connection.execute(sql, params);
       return users;
     } finally {
@@ -527,17 +554,21 @@ class DatabaseManager {
   async createBackup() {
     try {
       console.log("🔄 Creating database backup...");
-      
+
       const backupDir = path.join(__dirname, "..", "backups");
       await fs.ensureDir(backupDir);
-      
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
       const backupFile = path.join(backupDir, `backup-${timestamp}.sql`);
-      
+
       // Create backup using mysqldump (if available)
-      const { exec } = require('child_process');
-      const command = `mysqldump -h ${this.config.host} -P ${this.config.port} -u ${this.config.user} ${this.config.password ? `-p${this.config.password}` : ''} ${this.config.database} > ${backupFile}`;
-      
+      const { exec } = require("child_process");
+      const command = `mysqldump -h ${this.config.host} -P ${
+        this.config.port
+      } -u ${this.config.user} ${
+        this.config.password ? `-p${this.config.password}` : ""
+      } ${this.config.database} > ${backupFile}`;
+
       return new Promise((resolve, reject) => {
         exec(command, (error, stdout, stderr) => {
           if (error) {
@@ -559,19 +590,19 @@ class DatabaseManager {
   async cleanupBackups() {
     try {
       const backupDir = path.join(__dirname, "..", "backups");
-      if (!await fs.pathExists(backupDir)) return;
-      
+      if (!(await fs.pathExists(backupDir))) return;
+
       const files = await fs.readdir(backupDir);
-      const sqlFiles = files.filter(file => file.endsWith('.sql'));
-      
+      const sqlFiles = files.filter((file) => file.endsWith(".sql"));
+
       const retentionDays = parseInt(process.env.BACKUP_RETENTION_DAYS) || 30;
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
-      
+
       for (const file of sqlFiles) {
         const filePath = path.join(backupDir, file);
         const stats = await fs.stat(filePath);
-        
+
         if (stats.mtime < cutoffDate) {
           await fs.remove(filePath);
           console.log(`🗑️ Removed old backup: ${file}`);
@@ -589,16 +620,16 @@ class DatabaseManager {
       await connection.ping();
       connection.release();
       return {
-        status: 'healthy',
+        status: "healthy",
         connected: this.isConnected,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       };
     } catch (error) {
       return {
-        status: 'unhealthy',
+        status: "unhealthy",
         connected: false,
         error: error.message,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       };
     }
   }
@@ -630,5 +661,5 @@ async function getConnection() {
 module.exports = {
   initDatabase,
   getConnection,
-  dbManager
+  dbManager,
 };
