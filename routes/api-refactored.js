@@ -851,4 +851,49 @@ router.get("/health", (req, res) => {
   });
 });
 
+// Endpoint to download database backups
+router.get("/v1/backup/:filename", async (req, res) => {
+  const { filename } = req.params;
+  const backupDir = path.join(__dirname, "..", "backups");
+  const filePath = path.join(backupDir, filename);
+
+  try {
+    // Check if file exists
+    const fileExists = await fs.pathExists(filePath);
+    if (!fileExists) {
+      console.warn(`❌ Backup file not found: ${filename}`);
+      return res.status(404).json({
+        success: false,
+        message: "File backup tidak ditemukan.",
+      });
+    }
+
+    // Serve the file for download
+    res.download(filePath, filename, (err) => {
+      if (err) {
+        console.error(`❌ Error downloading file ${filename}:`, err);
+        if (!res.headersSent) {
+          res.status(500).json({
+            success: false,
+            message: "Terjadi kesalahan saat mengunduh file.",
+            error: err.message,
+          });
+        }
+      } else {
+        console.log(`✅ Backup file downloaded: ${filename}`);
+      }
+    });
+  } catch (error) {
+    console.error(
+      `❌ Server error during backup download for ${filename}:`,
+      error
+    );
+    res.status(500).json({
+      success: false,
+      message: "Terjadi kesalahan server internal.",
+      error: error.message,
+    });
+  }
+});
+
 module.exports = router;
