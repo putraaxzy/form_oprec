@@ -98,7 +98,9 @@ class FileUploadManager {
           if (mimetype && extname) {
             return cb(null, true);
           } else {
-            console.error(`❌ Invalid photo file: ${file.originalname} (${file.mimetype})`);
+            console.error(
+              `❌ Invalid photo file: ${file.originalname} (${file.mimetype})`
+            );
             return cb(
               new Error(
                 "Hanya file gambar (JPG, JPEG, PNG, WEBP) yang diizinkan untuk foto"
@@ -120,7 +122,9 @@ class FileUploadManager {
           if (mimetype && extname) {
             return cb(null, true);
           } else {
-            console.error(`❌ Invalid certificate file: ${file.originalname} (${file.mimetype})`);
+            console.error(
+              `❌ Invalid certificate file: ${file.originalname} (${file.mimetype})`
+            );
             return cb(
               new Error(
                 "Hanya file PDF, JPG, JPEG, PNG, WEBP yang diizinkan untuk sertifikat"
@@ -242,24 +246,27 @@ class RegistrationProcessor {
     return processed;
   }
 
-  // Check for duplicate names
-  async checkDuplicateRegistration(nama_lengkap) {
+  // Original duplicate check logic is commented out as per user's request for more lenient logic.
+  // If a specific duplicate check is needed, please specify the fields.
+  /*
+  async checkDuplicateRegistration(nama_lengkap, tanggal_lahir) {
     const connection = await getConnection();
     try {
       const [existingUsers] = await connection.execute(
-        "SELECT id, nama_lengkap FROM users WHERE LOWER(nama_lengkap) = LOWER(?)",
-        [nama_lengkap]
+        "SELECT id, nama_lengkap, tanggal_lahir FROM users WHERE LOWER(nama_lengkap) = LOWER(?) AND tanggal_lahir = ?",
+        [nama_lengkap, tanggal_lahir]
       );
 
       if (existingUsers.length > 0) {
         throw new Error(
-          "Nama sudah terdaftar dalam sistem. Harap menghubungi narahubung untuk informasi lebih lanjut."
+          "Nama dan tanggal lahir sudah terdaftar dalam sistem. Harap menghubungi narahubung untuk informasi lebih lanjut."
         );
       }
     } finally {
       connection.release();
     }
   }
+  */
 
   // Save user data to database
   async saveUserData(userData, uploadedFiles, ticket) {
@@ -500,22 +507,25 @@ router.post(
         message: message,
         error: err.code,
       });
-    } 
+    }
     // Handle Busboy stream errors
-    else if (err && (err.message?.includes('storageErrors') || err.name === 'Error')) {
+    else if (
+      err &&
+      (err.message?.includes("storageErrors") || err.name === "Error")
+    ) {
       console.error("❌ Busboy/Stream error:", err);
       return res.status(400).json({
         success: false,
-        message: "Terjadi kesalahan dalam pemrosesan file. Pastikan file tidak rusak dan format didukung.",
-        error: "STREAM_ERROR"
+        message:
+          "Terjadi kesalahan dalam pemrosesan file. Pastikan file tidak rusak dan format didukung.",
+        error: "STREAM_ERROR",
       });
-    }
-    else if (err) {
+    } else if (err) {
       console.error("❌ File upload error:", err);
       return res.status(400).json({
         success: false,
         message: err.message || "Terjadi kesalahan saat upload file",
-        error: "UPLOAD_ERROR"
+        error: "UPLOAD_ERROR",
       });
     }
     next();
@@ -539,9 +549,9 @@ router.post(
       const userData = processor.processFormData(req.body);
       console.log("✅ Form data processed");
 
-      // Check for duplicate registration
-      await processor.checkDuplicateRegistration(userData.nama_lengkap);
-      console.log("✅ Duplicate check passed");
+      // Duplicate check removed as per user's request for more lenient logic.
+      // If a specific duplicate check is needed, please specify the fields.
+      console.log("⚠️ Duplicate registration check skipped.");
 
       // Process uploaded files
       const uploadedFiles = processor.processUploadedFiles(req.files);
