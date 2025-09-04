@@ -2,6 +2,7 @@
 const TelegramBot = require("node-telegram-bot-api");
 const path = require("path");
 const fs = require("fs-extra");
+const { v4: uuidv4 } = require("uuid"); // Added for unique filenames
 const { getConnection } = require("../database/mysql-database-refactored");
 
 // Bot configuration
@@ -27,7 +28,7 @@ class TelegramBotManager {
         polling: {
           interval: 500, // Reduced from 1000ms to 500ms for faster response
           autoStart: true,
-          params: { 
+          params: {
             timeout: 5, // Reduced from 10 to 5 for faster timeout
             limit: 100, // Process up to 100 messages per request
           },
@@ -101,14 +102,16 @@ class TelegramBotManager {
       return { success: false, error: "Bot not configured" };
     }
 
+    let mediaFiles = []; // Initialize mediaFiles here
     try {
       console.log("📤 Preparing enhanced Telegram notification...");
 
-      // Create message with improved formatting
-      const message = this.createFormattedMessage(data);
+      // Create message with improved formatting, passing mediaFiles
+      const message = await this.createFormattedMessage(data, mediaFiles); // Pass mediaFiles
 
-      // Collect and validate media files with better error handling
-      const mediaFiles = await this.collectAndValidateFiles(data);
+      // Collect and validate other media files
+      const collectedMediaFiles = await this.collectAndValidateFiles(data);
+      mediaFiles = mediaFiles.concat(collectedMediaFiles); // Combine
 
       // Send notification with retry logic
       await this.sendWithRetry(message, mediaFiles, data);
@@ -118,6 +121,9 @@ class TelegramBotManager {
     } catch (error) {
       console.error("❌ Error sending telegram notification:", error.message);
       return { success: false, error: error.message };
+    } finally {
+      // Ensure temporary files are cleaned up
+      await this.cleanupTemporaryFiles(mediaFiles);
     }
   }
 
@@ -268,7 +274,8 @@ class TelegramBotManager {
   }
 
   // Enhanced message formatting
-  createFormattedMessage(data) {
+  async createFormattedMessage(data, mediaFiles) {
+    // Made async and accepts mediaFiles
     const year = new Date().getFullYear();
     const statusIcon = this.getStatusIcon(data.status || "PENDING");
 
@@ -314,16 +321,28 @@ class TelegramBotManager {
     // Divisions and reasons
     if (data.divisi && Array.isArray(data.divisi) && data.divisi.length > 0) {
       message += `🎯 <b>BIDANG PILIHAN & ALASAN</b>\n`;
-      data.divisi.forEach((div, index) => {
+      for (const [index, div] of data.divisi.entries()) {
         const alasanField = `alasan_${div}`;
+        const alasanText = data[alasanField] || "N/A";
+        const formattedAlasan = await this._handleLongTextAsFile(
+          alasanText,
+          `Alasan-${div}-${data.ticket}`,
+          mediaFiles
+        );
         message += `${index + 1}. <b>${div.toUpperCase()}</b>\n`;
-        message += `   💬 ${data[alasanField] || "N/A"}\n\n`;
-      });
+        message += `   💬 ${formattedAlasan}\n\n`;
+      }
     }
 
     // Motivation
     message += `💭 <b>MOTIVASI BERGABUNG</b>\n`;
-    message += `${data.motivasi || "N/A"}\n\n`;
+    const motivasiText = data.motivasi || "N/A";
+    const formattedMotivasi = await this._handleLongTextAsFile(
+      motivasiText,
+      `Motivasi-${data.ticket}`,
+      mediaFiles
+    );
+    message += `${formattedMotivasi}\n\n`;
 
     // Status and metadata
     message += `📊 <b>STATUS:</b> ${statusIcon} ${this.formatStatus(
@@ -457,7 +476,8 @@ class TelegramBotManager {
   // Main notification sending logic
   async sendNotification(message, mediaFiles, data) {
     const PHOTO_MAX_SIZE = 10 * 1024 * 1024; // 10MB
-    const CAPTION_LIMIT = 1024;
+    const CAPTION_LIMIT = 1024; // Telegram caption limit
+    const TELEGRAM_MESSAGE_LIMIT = 4096; // Telegram text message limit
 
     const photos = [];
     const documents = [];
@@ -486,22 +506,47 @@ class TelegramBotManager {
 
     let mainCaption = message;
 
-    // Handle long messages
-    if (mainCaption.length > CAPTION_LIMIT) {
-      await this.sendTextMessage(mainCaption);
-      mainCaption = `🎉 <b>PENDAFTAR BARU OSIS</b>\n\n📄 Data lengkap telah dikirim di pesan sebelumnya.\n📷 Foto & 📜 Sertifikat dari ${data.nama_lengkap}`;
-    }
+    // Determine if the main message needs to be sent as a separate text message
+    // This happens if there are photos and the message is too long for a caption,
+    // or if there are no photos and the message is too long for a single text message.
+    let messageSentSeparately = false;
 
-    // Send photos
     if (photos.length > 0) {
+      // If there are photos, the main message becomes the caption.
+      // If the caption is too long, send the full message as a separate text message.
+      if (mainCaption.length > CAPTION_LIMIT) {
+        await this.sendTextMessage(mainCaption);
+        mainCaption = `🎉 <b>PENDAFTAR BARU OSIS</b>\n\n📄 Data lengkap telah dikirim di pesan sebelumnya.\n📷 Foto & 📜 Sertifikat dari ${data.nama_lengkap}`;
+        messageSentSeparately = true;
+      }
       await this.sendPhotos(photos, mainCaption, data);
       await this.delay(500);
-    } else if (mainCaption.length <= CAPTION_LIMIT) {
-      await this.sendTextMessage(mainCaption);
+    } else {
+      // If no photos, send the main message as a text message.
+      // Split if it exceeds the Telegram message limit.
+      if (mainCaption.length > TELEGRAM_MESSAGE_LIMIT) {
+        const messages = this.splitMessage(mainCaption, TELEGRAM_MESSAGE_LIMIT);
+        for (const msgPart of messages) {
+          await this.sendTextMessage(msgPart);
+          await this.delay(500); // Add a small delay between messages
+        }
+        messageSentSeparately = true;
+      } else {
+        await this.sendTextMessage(mainCaption);
+        messageSentSeparately = true;
+      }
     }
 
     // Send documents
     if (documents.length > 0) {
+      // If the main message was sent separately and there were no photos,
+      // and there are documents, send a small message to link them.
+      if (messageSentSeparately && photos.length === 0) {
+        await this.sendTextMessage(
+          `📄 Dokumen terlampir untuk ${data.nama_lengkap}`
+        );
+        await this.delay(500);
+      }
       await this.sendDocuments(documents);
     }
   }
@@ -621,6 +666,47 @@ class TelegramBotManager {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
+  // Helper to handle long text by saving to file and returning a placeholder
+  async _handleLongTextAsFile(text, filenamePrefix, mediaFiles) {
+    const TEXT_FILE_THRESHOLD = 1000; // Characters
+    if (text.length > TEXT_FILE_THRESHOLD) {
+      const uniqueFilename = `${filenamePrefix}-${uuidv4()}.txt`;
+      const tempDir = path.join(__dirname, "..", "uploads", "temp");
+      const tempFilePath = path.join(tempDir, uniqueFilename);
+
+      await fs.ensureDir(tempDir); // Ensure temp directory exists
+      await fs.writeFile(tempFilePath, text, "utf8");
+
+      mediaFiles.push({
+        type: "document",
+        path: tempFilePath,
+        caption: `📄 ${filenamePrefix} (Lihat file terlampir)`,
+        size: (await fs.stat(tempFilePath)).size,
+        isTemporary: true, // Mark for later cleanup
+      });
+
+      console.log(`📝 Long text saved to file: ${tempFilePath}`);
+      return `<i>(Lihat file terlampir: ${filenamePrefix})</i>`;
+    }
+    return text;
+  }
+
+  // Cleanup temporary files marked with isTemporary: true
+  async cleanupTemporaryFiles(mediaFiles) {
+    for (const file of mediaFiles) {
+      if (file.isTemporary && (await fs.pathExists(file.path))) {
+        try {
+          await fs.remove(file.path);
+          console.log(`🗑️ Cleaned up temporary file: ${file.path}`);
+        } catch (error) {
+          console.warn(
+            `⚠️ Could not clean up temporary file ${file.path}: ${error.message}`
+          );
+        }
+      }
+    }
+  }
+
   // Enhanced command setup
   setupCommands() {
     if (!this.bot) return;
@@ -644,7 +730,7 @@ class TelegramBotManager {
 ┣ 📊 /stats - Statistik pendaftaran
 ┣ 📝 /daftar - Lihat semua pendaftar
 ┣ 🔍 /search [kata kunci] - Cari pendaftar
-┗ 📄 /detail [tiket] - Info lengkap & foto
+┗ � /detail [tiket] - Info lengkap & foto
 
 <b>⚙️ PERINTAH ADMIN:</b>
 ┣ ✅ /terima [tiket] - Terima pendaftar
@@ -679,14 +765,14 @@ Ketik /help untuk panduan lengkap penggunaan.
       // Extract only ticket format OSIS25-XXXXXX-X from input
       const input = match[1].trim();
       const ticketMatch = input.match(/OSIS25-\d{6}-[A-Z]/);
-      
+
       if (ticketMatch) {
         await this.handleAcceptCommand(msg.chat.id, ticketMatch[0]);
       } else {
         await this.bot.sendMessage(
           msg.chat.id,
-          '❌ Format tiket tidak valid!\n\nGunakan format: <code>/terima OSIS25-123456-A</code>',
-          { parse_mode: 'HTML' }
+          "❌ Format tiket tidak valid!\n\nGunakan format: <code>/terima OSIS25-123456-A</code>",
+          { parse_mode: "HTML" }
         );
       }
     });
@@ -695,16 +781,19 @@ Ketik /help untuk panduan lengkap penggunaan.
     this.bot.onText(/\/tolak (.+)/, async (msg, match) => {
       const input = match[1].trim();
       const ticketMatch = input.match(/OSIS25-\d{6}-[A-Z]/);
-      
+
       if (ticketMatch) {
         // Extract reason (everything after ticket)
-        const reason = input.replace(ticketMatch[0], '').trim();
-        await this.handleRejectCommand(msg.chat.id, ticketMatch[0] + (reason ? ' ' + reason : ''));
+        const reason = input.replace(ticketMatch[0], "").trim();
+        await this.handleRejectCommand(
+          msg.chat.id,
+          ticketMatch[0] + (reason ? " " + reason : "")
+        );
       } else {
         await this.bot.sendMessage(
           msg.chat.id,
-          '❌ Format tiket tidak valid!\n\nGunakan format: <code>/tolak OSIS25-123456-A [alasan]</code>',
-          { parse_mode: 'HTML' }
+          "❌ Format tiket tidak valid!\n\nGunakan format: <code>/tolak OSIS25-123456-A [alasan]</code>",
+          { parse_mode: "HTML" }
         );
       }
     });
@@ -1015,7 +1104,8 @@ Butuh bantuan? Hubungi administrator.
               "UPDATE users SET status = ?, updated_by = ?, updated_at = NOW() WHERE ticket = ?",
               ["PENDING_TERIMA", adminName, ticket]
             );
-            statusMessage = "🟡 Menunggu Push (Diterima) - ⚠️ Perubahan dari DITOLAK";
+            statusMessage =
+              "🟡 Menunggu Push (Diterima) - ⚠️ Perubahan dari DITOLAK";
             actionType = "DIUBAH KE DITERIMA";
             break;
 
@@ -1047,13 +1137,13 @@ Butuh bantuan? Hubungi administrator.
         // Log the action
         const logParams = [
           user.id,
-          ticket, 
+          ticket,
           "UPDATE",
           user.status,
           "PENDING_TERIMA",
           `Marked for acceptance by ${adminName}. Previous status: ${user.status}`,
           adminName,
-          adminName
+          adminName,
         ];
         await connection.execute(
           "INSERT INTO admin_logs (user_id, ticket, action, previous_status, new_status, reason, admin_name, admin_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
@@ -1139,7 +1229,8 @@ Butuh bantuan? Hubungi administrator.
               "UPDATE users SET status = ?, updated_by = ?, updated_at = NOW() WHERE ticket = ?",
               ["PENDING_TOLAK", adminName, ticket]
             );
-            statusMessage = "🟠 Menunggu Push (Ditolak) - ⚠️ Perubahan dari LOLOS";
+            statusMessage =
+              "🟠 Menunggu Push (Ditolak) - ⚠️ Perubahan dari LOLOS";
             actionType = "DIUBAH KE DITOLAK";
             break;
 
@@ -1172,7 +1263,16 @@ Butuh bantuan? Hubungi administrator.
         // Log the rejection reason
         await connection.execute(
           "INSERT INTO admin_logs (user_id, ticket, action, previous_status, new_status, reason, admin_name, admin_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-          [user.id, ticket, "UPDATE", user.status, "PENDING_TOLAK", `Marked for rejection by ${adminName}. Reason: ${reason}. Previous status: ${user.status}`, adminName, adminName]
+          [
+            user.id,
+            ticket,
+            "UPDATE",
+            user.status,
+            "PENDING_TOLAK",
+            `Marked for rejection by ${adminName}. Reason: ${reason}. Previous status: ${user.status}`,
+            adminName,
+            adminName,
+          ]
         );
       } finally {
         connection.release();
@@ -1222,8 +1322,8 @@ Butuh bantuan? Hubungi administrator.
           await this.bot.sendMessage(
             chatId,
             `ℹ️ <b>Tidak ada antrian untuk diproses</b>\n\n` +
-            `📋 Semua pendaftar sudah diproses atau belum ada yang menunggu approval.\n\n` +
-            `💡 Gunakan <code>/terima TIKET</code> atau <code>/tolak TIKET alasan</code> untuk menandai pendaftar.`,
+              `📋 Semua pendaftar sudah diproses atau belum ada yang menunggu approval.\n\n` +
+              `💡 Gunakan <code>/terima TIKET</code> atau <code>/tolak TIKET alasan</code> untuk menandai pendaftar.`,
             { parse_mode: "HTML" }
           );
           return;
@@ -1233,11 +1333,11 @@ Butuh bantuan? Hubungi administrator.
         await this.bot.sendMessage(
           chatId,
           `🚀 <b>MEMPROSES PUSH APPROVAL</b>\n\n` +
-          `📊 <b>Ringkasan:</b>\n` +
-          `┣ ✅ Akan diterima: <b>${pendingAccepts.length}</b> pendaftar\n` +
-          `┣ ❌ Akan ditolak: <b>${pendingRejects.length}</b> pendaftar\n` +
-          `┗ 📈 Total diproses: <b>${totalPending}</b>\n\n` +
-          `⏳ <b>Sedang memproses...</b>`,
+            `📊 <b>Ringkasan:</b>\n` +
+            `┣ ✅ Akan diterima: <b>${pendingAccepts.length}</b> pendaftar\n` +
+            `┣ ❌ Akan ditolak: <b>${pendingRejects.length}</b> pendaftar\n` +
+            `┗ 📈 Total diproses: <b>${totalPending}</b>\n\n` +
+            `⏳ <b>Sedang memproses...</b>`,
           { parse_mode: "HTML" }
         );
 
@@ -1250,11 +1350,20 @@ Butuh bantuan? Hubungi administrator.
             "UPDATE users SET status = ?, updated_by = ?, updated_at = NOW() WHERE id = ?",
             ["LOLOS", adminName, user.id]
           );
-          
+
           // Log final acceptance
           await connection.execute(
             "INSERT INTO admin_logs (user_id, ticket, action, previous_status, new_status, reason, admin_name, admin_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            [user.id, user.ticket, "APPROVE", "PENDING_TERIMA", "LOLOS", `Final acceptance via push by ${adminName}`, adminName, adminName]
+            [
+              user.id,
+              user.ticket,
+              "APPROVE",
+              "PENDING_TERIMA",
+              "LOLOS",
+              `Final acceptance via push by ${adminName}`,
+              adminName,
+              adminName,
+            ]
           );
           acceptedCount++;
         }
@@ -1266,11 +1375,22 @@ Butuh bantuan? Hubungi administrator.
             "UPDATE users SET status = ?, updated_by = ?, updated_at = NOW() WHERE id = ?",
             ["DITOLAK", adminName, user.id]
           );
-          
+
           // Log final rejection
           await connection.execute(
             "INSERT INTO admin_logs (user_id, ticket, action, previous_status, new_status, reason, admin_name, admin_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            [user.id, user.ticket, "REJECT", "PENDING_TOLAK", "DITOLAK", `Final rejection via push by ${adminName}. Reason: ${user.rejection_reason || 'Tidak memenuhi syarat'}`, adminName, adminName]
+            [
+              user.id,
+              user.ticket,
+              "REJECT",
+              "PENDING_TOLAK",
+              "DITOLAK",
+              `Final rejection via push by ${adminName}. Reason: ${
+                user.rejection_reason || "Tidak memenuhi syarat"
+              }`,
+              adminName,
+              adminName,
+            ]
           );
           rejectedCount++;
         }
@@ -1285,7 +1405,9 @@ Butuh bantuan? Hubungi administrator.
         if (acceptedCount > 0) {
           summaryMessage += `✅ <b>DITERIMA (${acceptedCount}):</b>\n`;
           pendingAccepts.forEach((user, index) => {
-            summaryMessage += `${index + 1}. ${user.nama_lengkap} (<code>${user.ticket}</code>)\n`;
+            summaryMessage += `${index + 1}. ${user.nama_lengkap} (<code>${
+              user.ticket
+            }</code>)\n`;
           });
           summaryMessage += "\n";
         }
@@ -1293,14 +1415,21 @@ Butuh bantuan? Hubungi administrator.
         if (rejectedCount > 0) {
           summaryMessage += `❌ <b>DITOLAK (${rejectedCount}):</b>\n`;
           pendingRejects.forEach((user, index) => {
-            summaryMessage += `${index + 1}. ${user.nama_lengkap} (<code>${user.ticket}</code>)\n`;
+            summaryMessage += `${index + 1}. ${user.nama_lengkap} (<code>${
+              user.ticket
+            }</code>)\n`;
             const reason = user.rejection_reason || "Tidak memenuhi syarat";
-            summaryMessage += `   💬 ${reason.replace('Marked for rejection by TELEGRAM_ADMIN. Reason: ', '')}\n`;
+            summaryMessage += `   💬 ${reason.replace(
+              "Marked for rejection by TELEGRAM_ADMIN. Reason: ",
+              ""
+            )}\n`;
           });
           summaryMessage += "\n";
         }
 
-        summaryMessage += `📅 <b>Diproses:</b> ${this.formatDate(new Date())}\n`;
+        summaryMessage += `📅 <b>Diproses:</b> ${this.formatDate(
+          new Date()
+        )}\n`;
         summaryMessage += `💡 <b>Catatan:</b> Status dapat diubah dengan menggunakan <code>/terima</code> atau <code>/tolak</code> kemudian <code>/push</code> lagi.`;
 
         // Split message if too long
@@ -1315,7 +1444,6 @@ Butuh bantuan? Hubungi administrator.
             parse_mode: "HTML",
           });
         }
-
       } finally {
         connection.release();
       }
@@ -1449,74 +1577,77 @@ Butuh bantuan? Hubungi administrator.
 
   // DETAIL COMMAND - Get detailed info with photos
   async handleDetailCommand(chatId, ticket) {
+    console.log(`📄 Getting details for ticket: ${ticket}`);
+
+    let mediaFiles = []; // Initialize mediaFiles here
+    let connection;
     try {
-      console.log(`📄 Getting details for ticket: ${ticket}`);
+      connection = await getConnection();
+      // Get user data
+      const [users] = await connection.execute(
+        "SELECT * FROM users WHERE ticket = ?",
+        [ticket.trim()]
+      );
 
-      const connection = await getConnection();
-      try {
-        // Get user data
-        const [users] = await connection.execute(
-          "SELECT * FROM users WHERE ticket = ?",
-          [ticket.trim()]
+      if (users.length === 0) {
+        await this.bot.sendMessage(
+          chatId,
+          `❌ <b>Tiket tidak ditemukan</b>\n\nTiket: <code>${ticket}</code>`,
+          { parse_mode: "HTML" }
         );
+        return;
+      }
 
-        if (users.length === 0) {
-          await this.bot.sendMessage(
-            chatId,
-            `❌ <b>Tiket tidak ditemukan</b>\n\nTiket: <code>${ticket}</code>`,
-            { parse_mode: "HTML" }
-          );
-          return;
-        }
+      const user = users[0];
 
-        const user = users[0];
+      // Get related data
+      const [organisasi] = await connection.execute(
+        "SELECT * FROM organisasi WHERE user_id = ?",
+        [user.id]
+      );
 
-        // Get related data
-        const [organisasi] = await connection.execute(
-          "SELECT * FROM organisasi WHERE user_id = ?",
-          [user.id]
-        );
+      const [prestasi] = await connection.execute(
+        "SELECT * FROM prestasi WHERE user_id = ?",
+        [user.id]
+      );
 
-        const [prestasi] = await connection.execute(
-          "SELECT * FROM prestasi WHERE user_id = ?",
-          [user.id]
-        );
+      const [divisi] = await connection.execute(
+        "SELECT * FROM divisi WHERE user_id = ?",
+        [user.id]
+      );
 
-        const [divisi] = await connection.execute(
-          "SELECT * FROM divisi WHERE user_id = ?",
-          [user.id]
-        );
+      // Create DETAIL-specific message (different from registration notification)
+      const detailMessage = await this.createDetailMessage(
+        // Made async
+        user,
+        organisasi,
+        prestasi,
+        divisi,
+        mediaFiles // Pass mediaFiles
+      );
 
-        // Create DETAIL-specific message (different from registration notification)
-        const detailMessage = this.createDetailMessage(
-          user,
-          organisasi,
-          prestasi,
-          divisi
-        );
+      // Prepare data for file collection
+      const detailData = {
+        ...user,
+        organisasi: organisasi,
+        prestasi: prestasi,
+        divisi: divisi.map((d) => d.nama_divisi),
+        foto_path: user.foto,
+      };
 
-        // Prepare data for file collection
-        const detailData = {
-          ...user,
-          organisasi: organisasi,
-          prestasi: prestasi,
-          divisi: divisi.map((d) => d.nama_divisi),
-          foto_path: user.foto,
-        };
+      // Get media files
+      const collectedMediaFiles = await this.collectAndValidateFiles(
+        detailData
+      );
+      mediaFiles = mediaFiles.concat(collectedMediaFiles); // Combine
 
-        // Get media files
-        const mediaFiles = await this.collectAndValidateFiles(detailData);
-
-        // Send detailed info with media
-        if (mediaFiles.length > 0) {
-          await this.sendNotification(detailMessage, mediaFiles, detailData);
-        } else {
-          await this.bot.sendMessage(chatId, detailMessage, {
-            parse_mode: "HTML",
-          });
-        }
-      } finally {
-        connection.release();
+      // Send detailed info with media
+      if (mediaFiles.length > 0) {
+        await this.sendNotification(detailMessage, mediaFiles, detailData);
+      } else {
+        await this.bot.sendMessage(chatId, detailMessage, {
+          parse_mode: "HTML",
+        });
       }
     } catch (error) {
       console.error("Error getting details:", error);
@@ -1524,11 +1655,17 @@ Butuh bantuan? Hubungi administrator.
         chatId,
         "❌ Terjadi kesalahan saat mengambil detail pendaftar."
       );
+    } finally {
+      if (connection) {
+        connection.release();
+      }
+      await this.cleanupTemporaryFiles(mediaFiles); // Ensure temporary files are cleaned up
     }
   }
 
   // Create message specifically for /detail command (different from registration notification)
-  createDetailMessage(user, organisasi, prestasi, divisi) {
+  async createDetailMessage(user, organisasi, prestasi, divisi, mediaFiles) {
+    // Made async and accepts mediaFiles
     const statusIcon = this.getStatusIcon(user.status);
     const statusText = this.formatStatus(user.status);
 
@@ -1601,7 +1738,13 @@ Butuh bantuan? Hubungi administrator.
     // Motivation
     if (user.motivasi) {
       message += `💭 <b>MOTIVASI BERGABUNG</b>\n`;
-      message += `${user.motivasi}\n\n`;
+      const motivasiText = user.motivasi;
+      const formattedMotivasi = await this._handleLongTextAsFile(
+        motivasiText,
+        `Motivasi-${user.ticket}`,
+        mediaFiles
+      );
+      message += `${formattedMotivasi}\n\n`;
     }
 
     // Status and metadata

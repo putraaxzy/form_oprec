@@ -250,15 +250,11 @@ const backupManager = new DatabaseBackup();
 // Main backup function
 async function createDatabaseBackup() {
   try {
-    // Try mysqldump first, fallback to SQL method
-    try {
-      return await backupManager.createDatabaseBackup();
-    } catch (error) {
-      console.warn("⚠️ mysqldump failed, trying SQL backup method...");
-      return await backupManager.createSQLBackup();
-    }
+    // Directly use the SQL-based backup method to ensure data is backed up
+    // This method generates INSERT statements for existing data.
+    return await backupManager.createSQLBackup();
   } catch (error) {
-    console.error("❌ All backup methods failed:", error.message);
+    console.error("❌ Database backup failed:", error.message);
     throw error;
   }
 }
