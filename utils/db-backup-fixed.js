@@ -153,9 +153,14 @@ class DatabaseBackup {
     try {
       const currentDate = new Date();
       const dailyFolderName = this.formatDateForFolder(currentDate);
-      const dailyBackupPath = path.join(this.backupDir, dailyFolderName);
-      await fs.ensureDir(dailyBackupPath);
-      console.log(`✅ Daily backup directory created: ${dailyBackupPath}`);
+      const tempDailyBackupPath = path.join(
+        this.backupDir,
+        `${dailyFolderName}_temp`
+      );
+      await fs.ensureDir(tempDailyBackupPath);
+      console.log(
+        `✅ Temporary daily backup directory created: ${tempDailyBackupPath}`
+      );
 
       const [users] = await connection.execute(
         "SELECT id, nama_lengkap, ticket FROM users"
@@ -168,7 +173,7 @@ class DatabaseBackup {
 
       for (const user of users) {
         const userFolderName = `${user.nama_lengkap} - ${user.ticket}`;
-        const userBackupDir = path.join(dailyBackupPath, userFolderName);
+        const userBackupDir = path.join(tempDailyBackupPath, userFolderName);
         await fs.ensureDir(userBackupDir);
         console.log(`  📁 Created user backup directory: ${userFolderName}`);
 
@@ -185,45 +190,54 @@ class DatabaseBackup {
         } else {
           console.warn(`  ⚠️ Could not export data for user ID: ${user.id}`);
         }
-
-        // Create a zip archive for the user's directory
-        const output = fs.createWriteStream(
-          path.join(dailyBackupPath, `${userFolderName}.zip`)
-        );
-        const archive = archiver("zip", { zlib: { level: 9 } });
-
-        await new Promise((resolveZip, rejectZip) => {
-          output.on("close", () => {
-            console.log(`  ✅ Zipped user backup: ${userFolderName}.zip`);
-            fs.remove(userBackupDir)
-              .then(() => {
-                console.log(
-                  `  🗑️ Cleaned up temporary user directory: ${userFolderName}`
-                );
-                resolveZip();
-              })
-              .catch((err) => {
-                console.error(
-                  `  ❌ Error cleaning up user directory ${userFolderName}: ${err.message}`
-                );
-                rejectZip(err);
-              });
-          });
-          archive.on("error", (err) => {
-            console.error(
-              `  ❌ Archiver error for ${userFolderName}: ${err.message}`
-            );
-            rejectZip(err);
-          });
-
-          archive.directory(userBackupDir, false); // Append the directory's contents
-          archive.pipe(output);
-          archive.finalize();
-        });
       }
 
-      console.log("✅ All individual user backups completed.");
-      return { success: true, message: "Individual user backups created." };
+      console.log("✅ All individual user data and uploads processed.");
+
+      // Now, zip the entire daily folder
+      const outputZipPath = path.join(this.backupDir, `${dailyFolderName}.zip`);
+      const output = fs.createWriteStream(outputZipPath);
+      const archive = archiver("zip", { zlib: { level: 9 } });
+
+      await new Promise((resolveZip, rejectZip) => {
+        output.on("close", () => {
+          console.log(`✅ Zipped daily backup: ${dailyFolderName}.zip`);
+          fs.remove(tempDailyBackupPath)
+            .then(() => {
+              console.log(
+                `  🗑️ Cleaned up temporary daily directory: ${tempDailyBackupPath}`
+              );
+              resolveZip();
+            })
+            .catch((err) => {
+              console.error(
+                `  ❌ Error cleaning up temporary daily directory ${tempDailyBackupPath}: ${err.message}`
+              );
+              rejectZip(err);
+            });
+        });
+        archive.on("error", (err) => {
+          console.error(
+            `  ❌ Archiver error for daily backup ${dailyFolderName}: ${err.message}`
+          );
+          rejectZip(err);
+        });
+
+        archive.directory(tempDailyBackupPath, false); // Append the directory's contents
+        archive.pipe(output);
+        archive.finalize();
+      });
+
+      console.log("✅ Daily backup created and temporary files cleaned.");
+      return {
+        success: true,
+        message: `Daily backup ${dailyFolderName}.zip created.`,
+        filePath: outputZipPath,
+        fileName: `${dailyFolderName}.zip`,
+        size: (await fs.stat(outputZipPath)).size,
+        timestamp: new Date().toISOString(),
+        method: "ZIP_FOLDER",
+      };
     } catch (error) {
       console.error("❌ Individual user backup process error:", error.message);
       throw error;
@@ -339,11 +353,7 @@ class DatabaseBackup {
     try {
       const files = await fs.readdir(this.backupDir);
       const backupFiles = files
-        .filter(
-          (file) =>
-            file.includes("backup") &&
-            (file.endsWith(".sql") || file.endsWith(".zip"))
-        )
+        .filter((file) => file.endsWith(".zip"))
         .map(async (file) => {
           const filePath = path.join(this.backupDir, file);
           const stats = await fs.stat(filePath);
@@ -351,9 +361,13 @@ class DatabaseBackup {
             name: file,
             path: filePath,
             size: stats.size,
-            created: stats.birthtime,
-            modified: stats.mtime,
-            type: file.endsWith(".zip") ? "ZIP" : "SQL",
+            created: stats.birthtime.toLocaleString("id-ID", {
+              timeZone: "Asia/Jakarta",
+            }),
+            modified: stats.mtime.toLocaleString("id-ID", {
+              timeZone: "Asia/Jakarta",
+            }),
+            type: "ZIP",
           };
         });
 
@@ -361,6 +375,25 @@ class DatabaseBackup {
     } catch (error) {
       console.error("❌ Error listing backups:", error.message);
       return [];
+    }
+  }
+
+  async deleteBackupFile(filePath) {
+    try {
+      await fs.remove(filePath);
+      console.log(`🗑️ Successfully deleted backup file: ${filePath}`);
+      return {
+        success: true,
+        message: `File ${path.basename(filePath)} deleted.`,
+      };
+    } catch (error) {
+      console.error(
+        `❌ Error deleting backup file ${filePath}:`,
+        error.message
+      );
+      throw new Error(
+        `Failed to delete file ${path.basename(filePath)}: ${error.message}`
+      );
     }
   }
 

@@ -834,6 +834,16 @@ Ketik /help untuk panduan lengkap penggunaan.
       await this.handleBackupCommand(msg.chat.id);
     });
 
+    // List backups command
+    this.bot.onText(/\/listbackup/, async (msg) => {
+      await this.handleListBackupCommand(msg.chat.id);
+    });
+
+    // Delete backup command
+    this.bot.onText(/\/deletebackup (.+)/, async (msg, match) => {
+      await this.handleDeleteBackupCommand(msg.chat.id, match[1]);
+    });
+
     // Push command - Process all pending approvals
     this.bot.onText(/\/push/, async (msg) => {
       await this.handlePushCommand(msg.chat.id);
@@ -892,7 +902,15 @@ Ketik /help untuk panduan lengkap penggunaan.
 <code>/backup</code>
 → Buat backup database lengkap
 
-<b>11. HAPUS PENDAFTAR</b>
+<b>11. LIHAT BACKUP</b>
+<code>/listbackup</code>
+→ Menampilkan daftar folder backup yang tersedia
+
+<b>12. HAPUS BACKUP</b>
+<code>/deletebackup [nama_folder]</code>
+→ Menghapus folder backup tertentu (HATI-HATI!)
+
+<b>13. HAPUS PENDAFTAR</b>
 <code>/hapus OSIS25-782753-E</code>
 → Hapus data pendaftar (HATI-HATI!)
 
@@ -1893,6 +1911,113 @@ Butuh bantuan? Hubungi administrator.
     }
   }
 
+  // LIST BACKUP COMMAND - List available backup files
+  async handleListBackupCommand(chatId) {
+    try {
+      console.log("📁 Listing available backups...");
+
+      await this.bot.sendMessage(
+        chatId,
+        "📁 <b>Mengambil daftar backup...</b>\n⏳ Harap tunggu...",
+        { parse_mode: "HTML" }
+      );
+
+      const { backupManager } = require("./db-backup-fixed");
+      const backups = await backupManager.listBackups();
+
+      if (backups.length === 0) {
+        await this.bot.sendMessage(
+          chatId,
+          "ℹ️ <b>Tidak ada file backup yang ditemukan.</b>",
+          { parse_mode: "HTML" }
+        );
+        return;
+      }
+
+      let listMessage = `📁 <b>DAFTAR FILE BACKUP</b>\n\n`;
+      backups.sort((a, b) => new Date(b.created) - new Date(a.created)); // Newest first
+
+      backups.forEach((backup, index) => {
+        listMessage += `${index + 1}. <b>${backup.name}</b>\n`;
+        listMessage += `   📊 Ukuran: ${this.formatFileSize(backup.size)}\n`;
+        listMessage += `   📅 Dibuat: ${backup.created}\n\n`;
+      });
+
+      listMessage += `💡 Gunakan <code>/deletebackup [nama_file.zip]</code> untuk menghapus.`;
+
+      // Split message if too long
+      if (listMessage.length > 4000) {
+        const messages = this.splitMessage(listMessage, 4000);
+        for (const msg of messages) {
+          await this.bot.sendMessage(chatId, msg, { parse_mode: "HTML" });
+          await this.delay(500);
+        }
+      } else {
+        await this.bot.sendMessage(chatId, listMessage, {
+          parse_mode: "HTML",
+        });
+      }
+    } catch (error) {
+      console.error("Error listing backups:", error);
+      await this.bot.sendMessage(
+        chatId,
+        `❌ Terjadi kesalahan saat mengambil daftar backup:\n\n<code>${error.message}</code>`,
+        { parse_mode: "HTML" }
+      );
+    }
+  }
+
+  // DELETE BACKUP COMMAND - Delete a specific backup file
+  async handleDeleteBackupCommand(chatId, fileName) {
+    try {
+      console.log(`🗑️ Deleting backup file: ${fileName}`);
+
+      await this.bot.sendMessage(
+        chatId,
+        `🗑️ <b>Memulai penghapusan file backup:</b> <code>${fileName}</code>\n⏳ Harap tunggu...`,
+        { parse_mode: "HTML" }
+      );
+
+      const { backupManager } = require("./db-backup-fixed");
+      const backups = await backupManager.listBackups();
+      const targetBackup = backups.find((b) => b.name === fileName.trim());
+
+      if (!targetBackup) {
+        await this.bot.sendMessage(
+          chatId,
+          `❌ <b>File backup tidak ditemukan:</b> <code>${fileName}</code>\n\n` +
+            `💡 Gunakan <code>/listbackup</code> untuk melihat daftar file yang tersedia.`,
+          { parse_mode: "HTML" }
+        );
+        return;
+      }
+
+      const deleteResult = await backupManager.deleteBackupFile(
+        targetBackup.path
+      );
+
+      if (deleteResult.success) {
+        await this.bot.sendMessage(
+          chatId,
+          `✅ <b>File backup berhasil dihapus!</b>\n\n` +
+            `📁 Nama File: <code>${fileName}</code>\n` +
+            `📅 Dihapus: ${this.formatDate(new Date())}\n\n` +
+            `⚠️ File backup tersebut telah dihapus permanen.`,
+          { parse_mode: "HTML" }
+        );
+      } else {
+        throw new Error(deleteResult.message);
+      }
+    } catch (error) {
+      console.error("Error deleting backup file:", error);
+      await this.bot.sendMessage(
+        chatId,
+        `❌ Terjadi kesalahan saat menghapus file backup:\n\n<code>${error.message}</code>`,
+        { parse_mode: "HTML" }
+      );
+    }
+  }
+
   // BACKUP COMMAND - Create database backup
   async handleBackupCommand(chatId) {
     try {
@@ -1911,46 +2036,35 @@ Butuh bantuan? Hubungi administrator.
 
       if (backupResult && backupResult.success) {
         // Check if a file path was actually generated (e.g., if there were users to backup)
-        if (
-          !backupResult.filePath ||
-          !(await fs.pathExists(backupResult.filePath))
-        ) {
+        // The createDatabaseBackup now always returns filePath and fileName if successful
+        const TELEGRAM_FILE_SIZE_LIMIT = 50 * 1024 * 1024; // 50 MB
+
+        if (backupResult.size > TELEGRAM_FILE_SIZE_LIMIT) {
           await this.bot.sendMessage(
             chatId,
-            `ℹ️ <b>Backup database berhasil diproses, namun tidak ada file backup yang dihasilkan.</b>\n\n` +
-              `Ini mungkin terjadi jika tidak ada pendaftar yang ditemukan untuk di-backup, atau jika backup hanya menghasilkan pesan status tanpa file.`,
+            `⚠️ <b>BACKUP DATABASE TERLALU BESAR</b>\n\n` +
+              `📁 File backup (${this.formatFileSize(
+                backupResult.size
+              )}) melebihi batas ukuran file Telegram (50 MB).\n` +
+              `Backup telah berhasil dibuat dan disimpan secara lokal di server.\n\n` +
+              `<b>Detail Backup:</b>\n` +
+              `┣ 📁 Nama File: <code>${backupResult.fileName}</code>\n` +
+              `┣ 📊 Ukuran: ${this.formatFileSize(backupResult.size)}\n` +
+              `┗ 📅 Dibuat: ${this.formatDate(backupResult.timestamp)}`,
             { parse_mode: "HTML" }
           );
         } else {
-          const TELEGRAM_FILE_SIZE_LIMIT = 50 * 1024 * 1024; // 50 MB
-
-          if (backupResult.size > TELEGRAM_FILE_SIZE_LIMIT) {
-            await this.bot.sendMessage(
-              chatId,
-              `⚠️ <b>BACKUP DATABASE TERLALU BESAR</b>\n\n` +
-                `📁 File backup (${this.formatFileSize(
-                  backupResult.size
-                )}) melebihi batas ukuran file Telegram (50 MB).\n` +
-                `Backup telah berhasil dibuat dan disimpan secara lokal di server.\n\n` +
-                `<b>Detail Backup:</b>\n` +
-                `┣ 📁 Nama File: <code>${backupResult.fileName}</code>\n` +
-                `┣ 📊 Ukuran: ${this.formatFileSize(backupResult.size)}\n` +
-                `┗ 📅 Dibuat: ${this.formatDate(backupResult.timestamp)}`,
-              { parse_mode: "HTML" }
-            );
-          } else {
-            // Send backup file (now a zip)
-            await this.bot.sendDocument(chatId, backupResult.filePath, {
-              caption: `💾 <b>FULL DATABASE & UPLOADS BACKUP BERHASIL</b>\n\n📁 File: ${
-                backupResult.fileName
-              }\n📊 Size: ${this.formatFileSize(
-                backupResult.size
-              )}\n📅 Created: ${this.formatDate(
-                backupResult.timestamp
-              )}\n\n⚠️ File backup berisi data sensitif (database dan semua unggahan). Simpan dengan aman!`,
-              parse_mode: "HTML",
-            });
-          }
+          // Send backup file (now a zip)
+          await this.bot.sendDocument(chatId, backupResult.filePath, {
+            caption: `💾 <b>FULL DATABASE & UPLOADS BACKUP BERHASIL</b>\n\n📁 File: ${
+              backupResult.fileName
+            }\n📊 Size: ${this.formatFileSize(
+              backupResult.size
+            )}\n📅 Created: ${this.formatDate(
+              backupResult.timestamp
+            )}\n\n⚠️ File backup berisi data sensitif (database dan semua unggahan). Simpan dengan aman!`,
+            parse_mode: "HTML",
+          });
         }
 
         // Clean up old backups
