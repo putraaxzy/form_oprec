@@ -76,57 +76,53 @@ class DatabaseBackup {
         zlib: { level: 9 }, // Sets the compression level.
       });
 
-      output.on("close", async () => {
-        const stats = await fs.stat(zipFilePath);
-        console.log(`✅ Full backup created: ${zipFileName}`);
-        console.log(`📁 Size: ${this.formatFileSize(stats.size)}`);
-        // Clean up the temporary SQL dump file
-        await fs.remove(sqlFilePath);
-        console.log(`🗑️ Cleaned up temporary SQL dump: ${sqlFileName}`);
-
-        resolve({
-          success: true,
-          filePath: zipFilePath,
-          fileName: zipFileName,
-          size: stats.size,
-          timestamp: new Date().toISOString(),
-          method: "ZIP",
+      return new Promise(async (resolveZip, rejectZip) => {
+        output.on("close", async () => {
+          const stats = await fs.stat(zipFilePath);
+          console.log(`✅ Full backup created: ${zipFileName}`);
+          console.log(`📁 Size: ${this.formatFileSize(stats.size)}`);
+          // Clean up the temporary SQL dump file
+          await fs.remove(sqlFilePath);
+          console.log(`🗑️ Cleaned up temporary SQL dump: ${sqlFileName}`);
+          resolveZip({
+            success: true,
+            filePath: zipFilePath,
+            fileName: zipFileName,
+            size: stats.size,
+            timestamp: new Date().toISOString(),
+            method: "ZIP",
+          });
         });
-      });
 
-      archive.on("warning", (err) => {
-        if (err.code === "ENOENT") {
-          console.warn("⚠️ Archiver warning:", err.message);
+        archive.on("warning", (err) => {
+          if (err.code === "ENOENT") {
+            console.warn("⚠️ Archiver warning:", err.message);
+          } else {
+            console.error("❌ Archiver warning:", err.message);
+          }
+        });
+
+        archive.on("error", (err) => {
+          console.error("❌ Archiver error:", err.message);
+          rejectZip(new Error(`Archiver failed: ${err.message}`));
+        });
+
+        archive.pipe(output);
+
+        // Add the SQL dump file to the archive
+        archive.file(sqlFilePath, { name: sqlFileName });
+
+        // Add the entire 'uploads' directory to the archive
+        if (await fs.pathExists(uploadsDirPath)) {
+          archive.directory(uploadsDirPath, "uploads");
+          console.log(`📦 Added 'uploads' directory to backup`);
         } else {
-          console.error("❌ Archiver warning:", err.message);
+          console.warn(
+            `⚠️ 'uploads' directory not found at ${uploadsDirPath}, skipping.`
+          );
         }
-      });
 
-      archive.on("error", (err) => {
-        console.error("❌ Archiver error:", err.message);
-        reject(new Error(`Archiver failed: ${err.message}`));
-      });
-
-      archive.pipe(output);
-
-      // Add the SQL dump file to the archive
-      archive.file(sqlFilePath, { name: sqlFileName });
-
-      // Add the entire 'uploads' directory to the archive
-      if (await fs.pathExists(uploadsDirPath)) {
-        archive.directory(uploadsDirPath, "uploads");
-        console.log(`📦 Added 'uploads' directory to backup`);
-      } else {
-        console.warn(
-          `⚠️ 'uploads' directory not found at ${uploadsDirPath}, skipping.`
-        );
-      }
-
-      await archive.finalize();
-
-      return new Promise((resolveZip, rejectZip) => {
-        output.on("close", () => resolveZip());
-        archive.on("error", (err) => rejectZip(err));
+        await archive.finalize();
       });
     } catch (error) {
       console.error("❌ Full backup process error:", error.message);
