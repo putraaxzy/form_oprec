@@ -1910,34 +1910,47 @@ Butuh bantuan? Hubungi administrator.
       const backupResult = await createDatabaseBackup();
 
       if (backupResult && backupResult.success) {
-        const TELEGRAM_FILE_SIZE_LIMIT = 50 * 1024 * 1024; // 50 MB
-
-        if (backupResult.size > TELEGRAM_FILE_SIZE_LIMIT) {
+        // Check if a file path was actually generated (e.g., if there were users to backup)
+        if (
+          !backupResult.filePath ||
+          !(await fs.pathExists(backupResult.filePath))
+        ) {
           await this.bot.sendMessage(
             chatId,
-            `⚠️ <b>BACKUP DATABASE TERLALU BESAR</b>\n\n` +
-              `📁 File backup (${this.formatFileSize(
-                backupResult.size
-              )}) melebihi batas ukuran file Telegram (50 MB).\n` +
-              `Backup telah berhasil dibuat dan disimpan secara lokal di server.\n\n` +
-              `<b>Detail Backup:</b>\n` +
-              `┣ 📁 Nama File: <code>${backupResult.fileName}</code>\n` +
-              `┣ 📊 Ukuran: ${this.formatFileSize(backupResult.size)}\n` +
-              `┗ 📅 Dibuat: ${this.formatDate(backupResult.timestamp)}`,
+            `ℹ️ <b>Backup database berhasil diproses, namun tidak ada file backup yang dihasilkan.</b>\n\n` +
+              `Ini mungkin terjadi jika tidak ada pendaftar yang ditemukan untuk di-backup, atau jika backup hanya menghasilkan pesan status tanpa file.`,
             { parse_mode: "HTML" }
           );
         } else {
-          // Send backup file (now a zip)
-          await this.bot.sendDocument(chatId, backupResult.filePath, {
-            caption: `💾 <b>FULL DATABASE & UPLOADS BACKUP BERHASIL</b>\n\n📁 File: ${
-              backupResult.fileName
-            }\n📊 Size: ${this.formatFileSize(
-              backupResult.size
-            )}\n📅 Created: ${this.formatDate(
-              backupResult.timestamp
-            )}\n\n⚠️ File backup berisi data sensitif (database dan semua unggahan). Simpan dengan aman!`,
-            parse_mode: "HTML",
-          });
+          const TELEGRAM_FILE_SIZE_LIMIT = 50 * 1024 * 1024; // 50 MB
+
+          if (backupResult.size > TELEGRAM_FILE_SIZE_LIMIT) {
+            await this.bot.sendMessage(
+              chatId,
+              `⚠️ <b>BACKUP DATABASE TERLALU BESAR</b>\n\n` +
+                `📁 File backup (${this.formatFileSize(
+                  backupResult.size
+                )}) melebihi batas ukuran file Telegram (50 MB).\n` +
+                `Backup telah berhasil dibuat dan disimpan secara lokal di server.\n\n` +
+                `<b>Detail Backup:</b>\n` +
+                `┣ 📁 Nama File: <code>${backupResult.fileName}</code>\n` +
+                `┣ 📊 Ukuran: ${this.formatFileSize(backupResult.size)}\n` +
+                `┗ 📅 Dibuat: ${this.formatDate(backupResult.timestamp)}`,
+              { parse_mode: "HTML" }
+            );
+          } else {
+            // Send backup file (now a zip)
+            await this.bot.sendDocument(chatId, backupResult.filePath, {
+              caption: `💾 <b>FULL DATABASE & UPLOADS BACKUP BERHASIL</b>\n\n📁 File: ${
+                backupResult.fileName
+              }\n📊 Size: ${this.formatFileSize(
+                backupResult.size
+              )}\n📅 Created: ${this.formatDate(
+                backupResult.timestamp
+              )}\n\n⚠️ File backup berisi data sensitif (database dan semua unggahan). Simpan dengan aman!`,
+              parse_mode: "HTML",
+            });
+          }
         }
 
         // Clean up old backups
