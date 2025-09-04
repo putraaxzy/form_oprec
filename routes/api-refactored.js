@@ -851,27 +851,42 @@ router.get("/health", (req, res) => {
   });
 });
 
+const { backupManager } = require("../utils/db-backup-fixed"); // Import backupManager
+
 // Endpoint to download database backups
-router.get("/v1/backup/:filename", async (req, res) => {
-  const { filename } = req.params;
+// This endpoint now expects a path like /api/v1/backup/[daily_folder]/[user_backup.zip]
+router.get("/v1/backup/:backupPath", async (req, res) => {
+  const backupPath = req.params.backupPath; // Get the full path after /v1/backup/
   const backupDir = path.join(__dirname, "..", "backups");
-  const filePath = path.join(backupDir, filename);
+  const filePath = path.join(backupDir, backupPath);
+
+  // Security check: Ensure the requested path does not escape the backup directory
+  if (!filePath.startsWith(backupDir)) {
+    console.warn(`❌ Attempted directory traversal: ${backupPath}`);
+    return res.status(403).json({
+      success: false,
+      message: "Akses ditolak: Jalur file tidak valid.",
+    });
+  }
 
   try {
     // Check if file exists
     const fileExists = await fs.pathExists(filePath);
     if (!fileExists) {
-      console.warn(`❌ Backup file not found: ${filename}`);
+      console.warn(`❌ Backup file not found: ${backupPath}`);
       return res.status(404).json({
         success: false,
         message: "File backup tidak ditemukan.",
       });
     }
 
+    // Determine the filename for download (the last part of the path)
+    const filename = path.basename(filePath);
+
     // Serve the file for download
     res.download(filePath, filename, (err) => {
       if (err) {
-        console.error(`❌ Error downloading file ${filename}:`, err);
+        console.error(`❌ Error downloading file ${backupPath}:`, err);
         if (!res.headersSent) {
           res.status(500).json({
             success: false,
@@ -880,17 +895,57 @@ router.get("/v1/backup/:filename", async (req, res) => {
           });
         }
       } else {
-        console.log(`✅ Backup file downloaded: ${filename}`);
+        console.log(`✅ Backup file downloaded: ${backupPath}`);
       }
     });
   } catch (error) {
     console.error(
-      `❌ Server error during backup download for ${filename}:`,
+      `❌ Server error during backup download for ${backupPath}:`,
       error
     );
     res.status(500).json({
       success: false,
       message: "Terjadi kesalahan server internal.",
+      error: error.message,
+    });
+  }
+});
+
+// Temporary endpoint to trigger individual user backups
+router.post("/v1/trigger-user-backup", async (req, res) => {
+  try {
+    console.log("🔄 Triggering individual user backup...");
+    const result = await backupManager.createIndividualUserBackups();
+    res.json({
+      success: true,
+      message: "Individual user backup triggered successfully.",
+      details: result,
+    });
+  } catch (error) {
+    console.error("❌ Error triggering individual user backup:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to trigger individual user backup.",
+      error: error.message,
+    });
+  }
+});
+
+// Temporary endpoint to list available backups
+router.get("/v1/list-backups", async (req, res) => {
+  try {
+    console.log("🔍 Listing available backups...");
+    const backups = await backupManager.listBackups();
+    res.json({
+      success: true,
+      message: "Available backups listed.",
+      data: backups,
+    });
+  } catch (error) {
+    console.error("❌ Error listing backups:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to list backups.",
       error: error.message,
     });
   }
