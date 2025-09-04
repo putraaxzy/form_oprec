@@ -1979,15 +1979,29 @@
         });
 
         // Update buttons
-        document
-          .getElementById("prevBtn")
-          .classList.toggle("hidden", pageNumber === 1);
-        document
-          .getElementById("nextBtn")
-          .classList.toggle("hidden", pageNumber === totalPages);
-        document
-          .getElementById("submitBtn")
-          .classList.toggle("hidden", pageNumber !== totalPages);
+        const prevBtn = document.getElementById("prevBtn");
+        const nextBtn = document.getElementById("nextBtn");
+        const submitBtn = document.getElementById("submitBtn");
+        
+        console.log(`Updating buttons for page ${pageNumber}/${totalPages}`);
+        
+        // Previous button: show on page 2+
+        if (prevBtn) {
+          prevBtn.classList.toggle("hidden", pageNumber === 1);
+          console.log(`Previous button: ${pageNumber === 1 ? 'hidden' : 'visible'}`);
+        }
+        
+        // Next button: show on all pages except last
+        if (nextBtn) {
+          nextBtn.classList.toggle("hidden", pageNumber === totalPages);
+          console.log(`Next button: ${pageNumber === totalPages ? 'hidden' : 'visible'}`);
+        }
+        
+        // Submit button: show only on last page
+        if (submitBtn) {
+          submitBtn.classList.toggle("hidden", pageNumber !== totalPages);
+          console.log(`Submit button: ${pageNumber !== totalPages ? 'hidden' : 'visible'}`);
+        }
 
         currentPage = pageNumber;
         console.log("currentPage updated to:", currentPage);
@@ -1999,33 +2013,48 @@
         .addEventListener("submit", async function (e) {
           e.preventDefault();
 
+          console.log("=== FORM VALIDATION START ===");
+          console.log("Current page:", currentPage);
+          console.log("Selected divisi count:", selectedDivisiCount);
+
           // Validate only fields on the currently active page
           let isValid = true;
           const activePageFields = document.querySelectorAll(`#page${currentPage} input[required], #page${currentPage} textarea[required], #page${currentPage} select[required]`);
           
+          console.log("Active page fields to validate:", activePageFields.length);
+          
           activePageFields.forEach((field) => {
             if (!field.value.trim()) {
               field.classList.add("border-red-500");
+              console.log("Invalid field:", field.name || field.id);
               isValid = false;
-              // No need to show page, as we are already on the active page
             } else {
               field.classList.remove("border-red-500");
             }
           });
 
-          // Validate divisi selection
+          // Validate divisi selection - must have at least 1 divisi selected
           if (selectedDivisiCount === 0) {
+            console.log("No divisi selected - showing error");
             document.getElementById("divisiError").textContent =
               "Silakan pilih minimal 1 divisi.";
             document.getElementById("divisiError").classList.remove("hidden");
             showPage(2);
             isValid = false;
+          } else {
+            console.log("Divisi validation passed:", selectedDivisiCount, "selected");
+            document.getElementById("divisiError").classList.add("hidden");
           }
 
+          console.log("Overall form validation result:", isValid);
+
           if (!isValid) {
+            console.log("Validation failed - stopping submission");
             alert("Mohon lengkapi semua field yang wajib diisi.");
             return;
           }
+
+          console.log("Validation passed - proceeding with submission");
 
           // Show loading
           document.getElementById("loadingModal").classList.remove("hidden");
@@ -2087,7 +2116,23 @@
 
       // Initialize page 1 when document is ready
       document.addEventListener('DOMContentLoaded', function() {
+        console.log('DOM Content Loaded - initializing form');
         showPage(1);
+        
+        // Force ensure submit button is properly configured
+        const submitBtn = document.getElementById('submitBtn');
+        if (submitBtn) {
+          console.log('Submit button found:', submitBtn);
+          console.log('Submit button classes:', submitBtn.className);
+          
+          // Add click event listener as backup
+          submitBtn.addEventListener('click', function(e) {
+            console.log('Submit button clicked directly!');
+            // The form submit event should handle this, but this is a backup
+          });
+        } else {
+          console.error('Submit button not found!');
+        }
       });
     </script>
   </body>
