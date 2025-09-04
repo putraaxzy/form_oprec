@@ -674,14 +674,39 @@ Ketik /help untuk panduan lengkap penggunaan.
       await this.handleStatsCommand(msg.chat.id);
     });
 
-    // Accept command
+    // Accept command with ticket extraction
     this.bot.onText(/\/terima (.+)/, async (msg, match) => {
-      await this.handleAcceptCommand(msg.chat.id, match[1]);
+      // Extract only ticket format OSIS25-XXXXXX-X from input
+      const input = match[1].trim();
+      const ticketMatch = input.match(/OSIS25-\d{6}-[A-Z]/);
+      
+      if (ticketMatch) {
+        await this.handleAcceptCommand(msg.chat.id, ticketMatch[0]);
+      } else {
+        await this.bot.sendMessage(
+          msg.chat.id,
+          '❌ Format tiket tidak valid!\n\nGunakan format: <code>/terima OSIS25-123456-A</code>',
+          { parse_mode: 'HTML' }
+        );
+      }
     });
 
-    // Reject command
+    // Reject command with ticket extraction
     this.bot.onText(/\/tolak (.+)/, async (msg, match) => {
-      await this.handleRejectCommand(msg.chat.id, match[1]);
+      const input = match[1].trim();
+      const ticketMatch = input.match(/OSIS25-\d{6}-[A-Z]/);
+      
+      if (ticketMatch) {
+        // Extract reason (everything after ticket)
+        const reason = input.replace(ticketMatch[0], '').trim();
+        await this.handleRejectCommand(msg.chat.id, ticketMatch[0] + (reason ? ' ' + reason : ''));
+      } else {
+        await this.bot.sendMessage(
+          msg.chat.id,
+          '❌ Format tiket tidak valid!\n\nGunakan format: <code>/tolak OSIS25-123456-A [alasan]</code>',
+          { parse_mode: 'HTML' }
+        );
+      }
     });
 
     // Search command

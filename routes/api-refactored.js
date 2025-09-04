@@ -89,18 +89,19 @@ class FileUploadManager {
 
         // Photo validation (stricter for photos)
         if (file.fieldname === "foto") {
-          const allowedTypes = /jpeg|jpg|png/;
+          const allowedTypes = /jpeg|jpg|png|webp/;
           const extname = allowedTypes.test(
             path.extname(file.originalname).toLowerCase()
           );
-          const mimetype = /image\/(jpeg|jpg|png)/.test(file.mimetype);
+          const mimetype = /image\/(jpeg|jpg|png|webp)/.test(file.mimetype);
 
           if (mimetype && extname) {
             return cb(null, true);
           } else {
+            console.error(`❌ Invalid photo file: ${file.originalname} (${file.mimetype})`);
             return cb(
               new Error(
-                "Hanya file gambar (JPG, JPEG, PNG) yang diizinkan untuk foto"
+                "Hanya file gambar (JPG, JPEG, PNG, WEBP) yang diizinkan untuk foto"
               )
             );
           }
@@ -108,20 +109,21 @@ class FileUploadManager {
 
         // Certificate validation (allow PDF and images)
         else if (file.fieldname.includes("sertifikat")) {
-          const allowedTypes = /pdf|jpeg|jpg|png/;
+          const allowedTypes = /pdf|jpeg|jpg|png|webp/;
           const extname = allowedTypes.test(
             path.extname(file.originalname).toLowerCase()
           );
-          const mimetype = /application\/pdf|image\/(jpeg|jpg|png)/.test(
+          const mimetype = /application\/pdf|image\/(jpeg|jpg|png|webp)/.test(
             file.mimetype
           );
 
           if (mimetype && extname) {
             return cb(null, true);
           } else {
+            console.error(`❌ Invalid certificate file: ${file.originalname} (${file.mimetype})`);
             return cb(
               new Error(
-                "Hanya file PDF, JPG, JPEG, PNG yang diizinkan untuk sertifikat"
+                "Hanya file PDF, JPG, JPEG, PNG, WEBP yang diizinkan untuk sertifikat"
               )
             );
           }
@@ -460,7 +462,7 @@ router.post(
   "/register",
   processor.fileManager.upload.any(),
 
-  // Enhanced multer error handling
+  // Enhanced multer error handling with Busboy stream errors
   (err, req, res, next) => {
     if (err instanceof multer.MulterError) {
       console.error("❌ Multer error:", err);
@@ -480,6 +482,17 @@ router.post(
         case "LIMIT_UNEXPECTED_FILE":
           message = "Format file tidak didukung atau field tidak valid.";
           break;
+        case "LIMIT_FIELD_COUNT":
+          message = "Terlalu banyak field dalam form.";
+          break;
+        case "LIMIT_FIELD_KEY":
+          message = "Nama field terlalu panjang.";
+          break;
+        case "LIMIT_FIELD_VALUE":
+          message = "Nilai field terlalu panjang.";
+          break;
+        default:
+          message = `Upload error: ${err.code}`;
       }
 
       return res.status(400).json({
@@ -487,11 +500,22 @@ router.post(
         message: message,
         error: err.code,
       });
-    } else if (err) {
+    } 
+    // Handle Busboy stream errors
+    else if (err && (err.message?.includes('storageErrors') || err.name === 'Error')) {
+      console.error("❌ Busboy/Stream error:", err);
+      return res.status(400).json({
+        success: false,
+        message: "Terjadi kesalahan dalam pemrosesan file. Pastikan file tidak rusak dan format didukung.",
+        error: "STREAM_ERROR"
+      });
+    }
+    else if (err) {
       console.error("❌ File upload error:", err);
       return res.status(400).json({
         success: false,
         message: err.message || "Terjadi kesalahan saat upload file",
+        error: "UPLOAD_ERROR"
       });
     }
     next();
