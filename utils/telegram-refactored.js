@@ -161,8 +161,12 @@ class TelegramBotManager {
         }
 
         if (mediaFiles.length === 0) {
-          console.warn(`⚠️ Photo not found: ${data.foto_path}`);
+          console.warn(
+            `⚠️ Photo not found for ticket ${data.ticket}: ${data.foto_path}`
+          );
         }
+      } else {
+        console.log(`ℹ️ No foto_path provided for ticket ${data.ticket}`);
       }
 
       // Organization certificates with improved handling
@@ -270,7 +274,9 @@ class TelegramBotManager {
       }
     }
 
-    console.warn(`⚠️ Certificate not found: ${filename}`);
+    console.warn(
+      `⚠️ Certificate not found for ticket ${data.ticket}: ${filename}`
+    );
   }
 
   // Enhanced message formatting
@@ -1632,7 +1638,7 @@ Butuh bantuan? Hubungi administrator.
         organisasi: organisasi,
         prestasi: prestasi,
         divisi: divisi.map((d) => d.nama_divisi),
-        foto_path: user.foto,
+        foto_path: user.foto_path, // Corrected to use foto_path from the database
       };
 
       // Get media files
@@ -1643,14 +1649,20 @@ Butuh bantuan? Hubungi administrator.
 
       // Send detailed info with media
       if (mediaFiles.length > 0) {
+        console.log(
+          `📤 Sending /detail notification with ${mediaFiles.length} media files for ticket ${ticket}`
+        );
         await this.sendNotification(detailMessage, mediaFiles, detailData);
       } else {
+        console.log(
+          `📤 Sending /detail notification as text only (no media files found) for ticket ${ticket}`
+        );
         await this.bot.sendMessage(chatId, detailMessage, {
           parse_mode: "HTML",
         });
       }
     } catch (error) {
-      console.error("Error getting details:", error);
+      console.error(`❌ Error getting details for ticket ${ticket}:`, error);
       await this.bot.sendMessage(
         chatId,
         "❌ Terjadi kesalahan saat mengambil detail pendaftar."
@@ -1898,15 +1910,15 @@ Butuh bantuan? Hubungi administrator.
       const backupResult = await createDatabaseBackup();
 
       if (backupResult && backupResult.success) {
-        // Send backup file
+        // Send backup file (now a zip)
         await this.bot.sendDocument(chatId, backupResult.filePath, {
-          caption: `💾 <b>DATABASE BACKUP BERHASIL</b>\n\n📁 File: ${
+          caption: `💾 <b>FULL DATABASE & UPLOADS BACKUP BERHASIL</b>\n\n📁 File: ${
             backupResult.fileName
           }\n📊 Size: ${this.formatFileSize(
             backupResult.size
           )}\n📅 Created: ${this.formatDate(
             backupResult.timestamp
-          )}\n\n⚠️ File backup berisi data sensitif. Simpan dengan aman!`,
+          )}\n\n⚠️ File backup berisi data sensitif (database dan semua unggahan). Simpan dengan aman!`,
           parse_mode: "HTML",
         });
 

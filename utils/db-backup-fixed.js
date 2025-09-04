@@ -1,6 +1,7 @@
 const { exec } = require("child_process");
 const path = require("path");
 const fs = require("fs-extra");
+const archiver = require("archiver"); // Added for creating zip archives
 const { getConnection } = require("../database/mysql-database-refactored");
 
 // Database backup utility with enhanced features
@@ -21,7 +22,7 @@ class DatabaseBackup {
 
   async createDatabaseBackup() {
     try {
-      console.log("🗄️ Starting database backup...");
+      console.log("🗄️ Starting full database and uploads backup...");
 
       const timestamp = new Date()
         .toISOString()
@@ -29,8 +30,11 @@ class DatabaseBackup {
         .replace(/T/, "_")
         .replace(/Z/, "");
 
-      const backupFileName = `osis_backup_${timestamp}.sql`;
-      const backupFilePath = path.join(this.backupDir, backupFileName);
+      const sqlFileName = `osis_db_dump_${timestamp}.sql`;
+      const sqlFilePath = path.join(this.backupDir, sqlFileName);
+      const zipFileName = `osis_full_backup_${timestamp}.zip`;
+      const zipFilePath = path.join(this.backupDir, zipFileName);
+      const uploadsDirPath = path.join(__dirname, "..", "uploads");
 
       // Get database connection info
       const connection = await getConnection();
@@ -41,48 +45,91 @@ class DatabaseBackup {
 
       connection.release(); // Release connection immediately
 
-      // Create mysqldump command
+      // 1. Create mysqldump command (schema and data)
       const dumpCmd = `mysqldump -h ${dbHost} -u ${dbUser} ${
         dbPass ? `-p${dbPass}` : ""
-      } --single-transaction --routines --triggers ${dbName} > "${backupFilePath}"`;
+      } --single-transaction --routines --triggers ${dbName} > "${sqlFilePath}"`;
 
-      return new Promise((resolve, reject) => {
+      await new Promise((resolve, reject) => {
         exec(dumpCmd, (error, stdout, stderr) => {
           if (error) {
-            console.error("❌ Backup failed:", error.message);
-            reject(new Error(`Backup failed: ${error.message}`));
-            return;
+            console.error("❌ mysqldump failed:", error.message);
+            return reject(new Error(`mysqldump failed: ${error.message}`));
           }
-
           if (stderr && !stderr.includes("Warning")) {
-            console.error("❌ Backup warning:", stderr);
+            console.warn("⚠️ mysqldump warning:", stderr);
           }
-
-          // Verify backup file exists and has content
-          if (fs.existsSync(backupFilePath)) {
-            const stats = fs.statSync(backupFilePath);
-            if (stats.size > 0) {
-              console.log(
-                `✅ Database backup created successfully: ${backupFileName}`
-              );
-              console.log(`📁 Size: ${this.formatFileSize(stats.size)}`);
-              resolve({
-                success: true,
-                filePath: backupFilePath,
-                fileName: backupFileName,
-                size: stats.size,
-                timestamp: new Date().toISOString(),
-              });
-            } else {
-              reject(new Error("Backup file is empty"));
-            }
-          } else {
-            reject(new Error("Backup file not created"));
+          if (
+            !fs.existsSync(sqlFilePath) ||
+            fs.statSync(sqlFilePath).size === 0
+          ) {
+            return reject(new Error("SQL dump file not created or is empty"));
           }
+          console.log(`✅ Database SQL dump created: ${sqlFileName}`);
+          resolve();
         });
       });
+
+      // 2. Create a zip archive
+      const output = fs.createWriteStream(zipFilePath);
+      const archive = archiver("zip", {
+        zlib: { level: 9 }, // Sets the compression level.
+      });
+
+      output.on("close", async () => {
+        const stats = await fs.stat(zipFilePath);
+        console.log(`✅ Full backup created: ${zipFileName}`);
+        console.log(`📁 Size: ${this.formatFileSize(stats.size)}`);
+        // Clean up the temporary SQL dump file
+        await fs.remove(sqlFilePath);
+        console.log(`🗑️ Cleaned up temporary SQL dump: ${sqlFileName}`);
+
+        resolve({
+          success: true,
+          filePath: zipFilePath,
+          fileName: zipFileName,
+          size: stats.size,
+          timestamp: new Date().toISOString(),
+          method: "ZIP",
+        });
+      });
+
+      archive.on("warning", (err) => {
+        if (err.code === "ENOENT") {
+          console.warn("⚠️ Archiver warning:", err.message);
+        } else {
+          console.error("❌ Archiver warning:", err.message);
+        }
+      });
+
+      archive.on("error", (err) => {
+        console.error("❌ Archiver error:", err.message);
+        reject(new Error(`Archiver failed: ${err.message}`));
+      });
+
+      archive.pipe(output);
+
+      // Add the SQL dump file to the archive
+      archive.file(sqlFilePath, { name: sqlFileName });
+
+      // Add the entire 'uploads' directory to the archive
+      if (await fs.pathExists(uploadsDirPath)) {
+        archive.directory(uploadsDirPath, "uploads");
+        console.log(`📦 Added 'uploads' directory to backup`);
+      } else {
+        console.warn(
+          `⚠️ 'uploads' directory not found at ${uploadsDirPath}, skipping.`
+        );
+      }
+
+      await archive.finalize();
+
+      return new Promise((resolveZip, rejectZip) => {
+        output.on("close", () => resolveZip());
+        archive.on("error", (err) => rejectZip(err));
+      });
     } catch (error) {
-      console.error("❌ Backup process error:", error.message);
+      console.error("❌ Full backup process error:", error.message);
       throw error;
     }
   }
@@ -188,7 +235,11 @@ class DatabaseBackup {
     try {
       const files = await fs.readdir(this.backupDir);
       const backupFiles = files
-        .filter((file) => file.includes("backup") && file.endsWith(".sql"))
+        .filter(
+          (file) =>
+            file.includes("backup") &&
+            (file.endsWith(".sql") || file.endsWith(".zip"))
+        )
         .map(async (file) => {
           const filePath = path.join(this.backupDir, file);
           const stats = await fs.stat(filePath);
@@ -198,6 +249,7 @@ class DatabaseBackup {
             size: stats.size,
             created: stats.birthtime,
             modified: stats.mtime,
+            type: file.endsWith(".zip") ? "ZIP" : "SQL",
           };
         });
 
@@ -250,11 +302,10 @@ const backupManager = new DatabaseBackup();
 // Main backup function
 async function createDatabaseBackup() {
   try {
-    // Directly use the SQL-based backup method to ensure data is backed up
-    // This method generates INSERT statements for existing data.
-    return await backupManager.createSQLBackup();
+    // Now, the primary backup method creates a zip archive
+    return await backupManager.createDatabaseBackup();
   } catch (error) {
-    console.error("❌ Database backup failed:", error.message);
+    console.error("❌ Full database backup failed:", error.message);
     throw error;
   }
 }

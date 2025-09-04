@@ -316,6 +316,9 @@ class RegistrationProcessor {
           ) {
             const sertifikatPath =
               uploadedFiles.organisasi_sertifikat[i] || null;
+            console.log(
+              `DEBUG: Organisasi Sertifikat Path for index ${i}: ${sertifikatPath}`
+            );
             await connection.execute(
               "INSERT INTO organisasi (user_id, nama_organisasi, jabatan, tahun, sertifikat_path) VALUES (?, ?, ?, ?, ?)",
               [
@@ -340,6 +343,9 @@ class RegistrationProcessor {
         for (let i = 0; i < userData.prestasi_nama.length; i++) {
           if (userData.prestasi_nama[i] && userData.prestasi_nama[i].trim()) {
             const sertifikatPath = uploadedFiles.prestasi_sertifikat[i] || null;
+            console.log(
+              `DEBUG: Prestasi Sertifikat Path for index ${i}: ${sertifikatPath}`
+            );
             await connection.execute(
               "INSERT INTO prestasi (user_id, nama_prestasi, tingkat, tahun, sertifikat_path) VALUES (?, ?, ?, ?, ?)",
               [
