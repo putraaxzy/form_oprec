@@ -422,11 +422,16 @@ class RegistrationProcessor {
 
       // Insert division data with validation
       if (userData.divisi && userData.divisi.length > 0) {
-        // Create reverse mapping to find original form field names
-        const reverseDivisionMapping = {};
-        for (const [formValue, dbValue] of Object.entries(DIVISION_MAPPING)) {
-          reverseDivisionMapping[dbValue] = formValue;
-        }
+        // Create proper reverse mapping to find original form field names
+        // Only map from database values to the actual form field names (lowercase)
+        const reverseDivisionMapping = {
+          'Keagamaan': 'keagamaan',
+          'Kedisiplinan': 'kedisiplinan',
+          'Bakat Minat': 'bakat_minat',
+          'Jurnalistik': 'jurnalistik',
+          'Media Jaringan': 'media_jaringan',
+          'Sekretaris': 'sekretaris'
+        };
         
         for (const div of userData.divisi) {
           // Double-check division validity before database insert
@@ -544,11 +549,16 @@ class RegistrationProcessor {
 
     // Add division reasons
     if (userData.divisi) {
-      // Create reverse mapping to find original form field names
-      const reverseDivisionMapping = {};
-      for (const [formValue, dbValue] of Object.entries(DIVISION_MAPPING)) {
-        reverseDivisionMapping[dbValue] = formValue;
-      }
+      // Create proper reverse mapping to find original form field names
+      // Only map from database values to the actual form field names (lowercase)
+      const reverseDivisionMapping = {
+        'Keagamaan': 'keagamaan',
+        'Kedisiplinan': 'kedisiplinan',
+        'Bakat Minat': 'bakat_minat',
+        'Jurnalistik': 'jurnalistik',
+        'Media Jaringan': 'media_jaringan',
+        'Sekretaris': 'sekretaris'
+      };
       
       userData.divisi.forEach((div) => {
         // Use original form field name for reason field
