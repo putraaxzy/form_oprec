@@ -15,6 +15,34 @@ const {
 
 const router = express.Router();
 
+// Define allowed division names to match database ENUM values
+const ALLOWED_DIVISIONS = [
+  "Keagamaan",
+  "Kedisiplinan", 
+  "Bakat Minat",
+  "Jurnalistik",
+  "Media Jaringan",
+  "Sekretaris",
+];
+
+// Mapping from form values to database values
+const DIVISION_MAPPING = {
+  'keagamaan': 'Keagamaan',
+  'kedisiplinan': 'Kedisiplinan',
+  'bakat_minat': 'Bakat Minat',
+  'jurnalistik': 'Jurnalistik',
+  'media_jaringan': 'Media Jaringan',
+  'sekretaris': 'Sekretaris',
+  'bendahara': 'Sekretaris', // Map bendahara to Sekretaris since bendahara is not in DB
+  // Add proper case versions as well for backwards compatibility
+  'Keagamaan': 'Keagamaan',
+  'Kedisiplinan': 'Kedisiplinan',
+  'Bakat Minat': 'Bakat Minat',
+  'Jurnalistik': 'Jurnalistik',
+  'Media Jaringan': 'Media Jaringan',
+  'Sekretaris': 'Sekretaris',
+};
+
 // Enhanced file upload configuration
 class FileUploadManager {
   constructor() {
@@ -240,8 +268,26 @@ class RegistrationProcessor {
     processed.prestasi_tingkat = this.ensureArray(body.prestasi_tingkat);
     processed.prestasi_tahun = this.ensureArray(body.prestasi_tahun);
 
-    // Process divisi
-    processed.divisi = this.ensureArray(body.divisi);
+    // Process divisi with validation and mapping
+    const rawDivisi = this.ensureArray(body.divisi);
+    
+    // Map form values to database values
+    processed.divisi = rawDivisi.map(div => {
+      const mappedDiv = DIVISION_MAPPING[div];
+      if (!mappedDiv) {
+        console.warn(`⚠️ Unknown division value from form: ${div}`);
+        return div; // Return original if no mapping found
+      }
+      return mappedDiv;
+    });
+    
+    // Validate mapped division names against allowed values
+    const invalidDivisions = processed.divisi.filter(div => !ALLOWED_DIVISIONS.includes(div));
+    if (invalidDivisions.length > 0) {
+      console.error(`❌ Invalid divisions after mapping: ${invalidDivisions.join(', ')}`);
+      console.error(`📝 Original form values: ${rawDivisi.join(', ')}`);
+      throw new Error(`Divisi tidak valid: ${invalidDivisions.join(', ')}. Pilihan yang tersedia: ${ALLOWED_DIVISIONS.join(', ')}`);
+    }
 
     return processed;
   }
@@ -365,17 +411,41 @@ class RegistrationProcessor {
         }
       }
 
-      // Insert division data
+      // Insert division data with validation
       if (userData.divisi && userData.divisi.length > 0) {
+        // Create reverse mapping to find original form field names
+        const reverseDivisionMapping = {};
+        for (const [formValue, dbValue] of Object.entries(DIVISION_MAPPING)) {
+          reverseDivisionMapping[dbValue] = formValue;
+        }
+        
         for (const div of userData.divisi) {
-          const alasanField = `alasan_${div}`;
+          // Double-check division validity before database insert
+          if (!ALLOWED_DIVISIONS.includes(div)) {
+            console.warn(`⚠️ Skipping invalid division: ${div}`);
+            continue;
+          }
+          
+          // Use original form field name for reason field
+          const originalFieldName = reverseDivisionMapping[div] || div.toLowerCase().replace(/\s+/g, '_');
+          const alasanField = `alasan_${originalFieldName}`;
           const alasan = userData[alasanField];
           if (alasan && alasan.trim()) {
-            await connection.execute(
-              "INSERT INTO divisi (user_id, nama_divisi, alasan) VALUES (?, ?, ?)",
-              [userId, safeValue(div), safeValue(alasan)]
-            );
-            console.log(`✅ Division ${div} saved with reason`);
+            try {
+              await connection.execute(
+                "INSERT INTO divisi (user_id, nama_divisi, alasan) VALUES (?, ?, ?)",
+                [userId, safeValue(div), safeValue(alasan)]
+              );
+              console.log(`✅ Division ${div} saved with reason`);
+            } catch (divError) {
+              console.error(`❌ Error saving division ${div}:`, divError);
+              // Continue with other divisions instead of failing completely
+              if (divError.code === 'WARN_DATA_TRUNCATED') {
+                console.warn(`⚠️ Division ${div} truncated, skipping...`);
+              } else {
+                throw divError; // Re-throw other types of errors
+              }
+            }
           }
         }
       }
@@ -445,8 +515,16 @@ class RegistrationProcessor {
 
     // Add division reasons
     if (userData.divisi) {
+      // Create reverse mapping to find original form field names
+      const reverseDivisionMapping = {};
+      for (const [formValue, dbValue] of Object.entries(DIVISION_MAPPING)) {
+        reverseDivisionMapping[dbValue] = formValue;
+      }
+      
       userData.divisi.forEach((div) => {
-        const alasanField = `alasan_${div}`;
+        // Use original form field name for reason field
+        const originalFieldName = reverseDivisionMapping[div] || div.toLowerCase().replace(/\s+/g, '_');
+        const alasanField = `alasan_${originalFieldName}`;
         if (userData[alasanField]) {
           telegramData[alasanField] = userData[alasanField];
         }
@@ -658,6 +736,24 @@ router.post(
           success: false,
           message: error.message,
           error: "DUPLICATE_NAME",
+        });
+      }
+
+      // Handle division validation errors
+      if (error.message.includes("Divisi tidak valid")) {
+        return res.status(400).json({
+          success: false,
+          message: error.message,
+          error: "INVALID_DIVISION",
+        });
+      }
+
+      // Handle database truncation errors
+      if (error.code === 'WARN_DATA_TRUNCATED' && error.message.includes('nama_divisi')) {
+        return res.status(400).json({
+          success: false,
+          message: `Nama divisi tidak valid. Pilihan yang tersedia: ${ALLOWED_DIVISIONS.join(', ')}`,
+          error: "INVALID_DIVISION_ENUM",
         });
       }
 
