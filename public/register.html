@@ -1321,7 +1321,7 @@
                 Bidang yang Diminati
               </h4>
               <p class="text-sm text-gray-600 mb-4">
-                Pilih  2 Bidang (Wajib) yang paling Anda minati:
+                Pilih 2 Bidang (Wajib) yang paling Anda minati:
               </p>
 
               <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-6">
@@ -1524,9 +1524,9 @@
                     </svg>
                   </div>
                   <div class="ml-3">
-                    <p class="text-sm text-red-700">
-                      Silakan pilih 2 bidang yang diminati.
-                    </p>
+              <p class="text-sm text-red-700">
+                Silakan pilih tepat 2 bidang yang diminati.
+              </p>
                   </div>
                 </div>
               </div>
@@ -1817,7 +1817,7 @@
         if (checkbox.checked) {
           if (selectedDivisiCount >= 2 && !element.classList.contains("selected")) {
             checkbox.checked = false;
-            alert("Maksimal 2 divisi yang dapat dipilih!");
+            alert("Anda harus memilih tepat 2 bidang. Anda sudah memilih 2 bidang.");
             return;
           }
           
@@ -1830,14 +1830,14 @@
           textarea.required = true;
           textarea.focus();
         } else {
+          // Only decrement if the checkbox was previously checked and is now being unchecked
+          if (element.classList.contains("selected")) {
+            selectedDivisiCount--;
+          }
           element.classList.remove("selected");
           textarea.disabled = true;
           textarea.required = false;
           textarea.value = "";
-          
-          if (element.classList.contains("selected") || selectedDivisiCount > 0) {
-            selectedDivisiCount--;
-          }
         }
 
         // Hide error if any
@@ -2033,16 +2033,16 @@
             }
           });
 
-          // Validate divisi selection - must have at least 1 divisi selected
-          if (selectedDivisiCount === 0) {
-            console.log("No divisi selected - showing error");
-            document.getElementById("divisiError").textContent =
-              "Silakan pilih minimal 1 divisi.";
+          // Validate divisi selection - must have exactly 2 divisi selected
+          if (selectedDivisiCount !== 2) {
+            console.log("Incorrect number of divisi selected - showing error");
+            document.getElementById("divisiError").querySelector('p').textContent =
+              "Silakan pilih tepat 2 bidang yang diminati.";
             document.getElementById("divisiError").classList.remove("hidden");
             showPage(2);
             isValid = false;
           } else {
-            console.log("Divisi validation passed:", selectedDivisiCount, "selected");
+            console.log("Divisi validation passed: exactly 2 selected");
             document.getElementById("divisiError").classList.add("hidden");
           }
 
