@@ -348,27 +348,33 @@ async function fetchComprehensiveUsersData(connection) {
   console.log("🔍 Fetching comprehensive user data...");
 
   try {
+    // First, check what columns actually exist in the users table
+    const [columns] = await connection.execute(`
+      SELECT COLUMN_NAME 
+      FROM INFORMATION_SCHEMA.COLUMNS 
+      WHERE TABLE_SCHEMA = DATABASE() 
+      AND TABLE_NAME = 'users'
+    `);
+
+    const availableColumns = columns.map(col => col.COLUMN_NAME);
+    console.log(`📋 Available columns: ${availableColumns.join(', ')}`);
+
+    // Define the columns we want to select (only if they exist)
+    const desiredColumns = [
+      'id', 'ticket', 'status', 'nama_lengkap', 'nama_panggilan', 
+      'kelas', 'jurusan', 'tempat_lahir', 'tanggal_lahir', 
+      'jenis_kelamin', 'agama', 'nomor_telepon', 'email', 
+      'alamat', 'hobi', 'motto', 'motivasi', 'foto_path',
+      'created_at', 'updated_at', 'created_by', 'updated_by'
+    ];
+
+    // Filter to only include columns that actually exist
+    const selectColumns = desiredColumns.filter(col => availableColumns.includes(col));
+    console.log(`🎯 Selecting columns: ${selectColumns.join(', ')}`);
+
     const [users] = await connection.execute(`
       SELECT 
-        u.id,
-        u.ticket,
-        u.status,
-        u.nama_lengkap,
-        u.nama_panggilan,
-        u.kelas,
-        u.jurusan,
-        u.tempat_lahir,
-        u.tanggal_lahir,
-        u.jenis_kelamin,
-        u.agama,
-        u.nomor_telepon,
-        u.email,
-        u.alamat,
-        u.hobi,
-        u.motto,
-        u.motivasi,
-        u.created_at,
-        u.updated_at,
+        ${selectColumns.map(col => `u.${col}`).join(',\n        ')},
         GROUP_CONCAT(DISTINCT d.nama_divisi ORDER BY d.nama_divisi SEPARATOR ', ') as divisi_list,
         GROUP_CONCAT(DISTINCT 
           CONCAT(o.nama_organisasi, ' (', COALESCE(o.jabatan, 'Anggota'), ' - ', o.tahun, ')') 
@@ -389,50 +395,80 @@ async function fetchComprehensiveUsersData(connection) {
     `);
 
     console.log(`✅ Retrieved ${users.length} user records`);
-    return users;
+    
+    // Ensure all expected columns exist in the result (add null for missing ones)
+    const enhancedUsers = users.map(user => {
+      const enhancedUser = { ...user };
+      
+      // Add missing columns with null values
+      desiredColumns.forEach(col => {
+        if (!(col in enhancedUser)) {
+          enhancedUser[col] = null;
+        }
+      });
+      
+      return enhancedUser;
+    });
+    
+    return enhancedUsers;
   } catch (error) {
     console.error("❌ Error fetching comprehensive user data:", error);
     
-    // Fallback: try simpler query without joins if main query fails
-    console.log("🔄 Attempting fallback query...");
+    // Fallback: try very simple query with minimal columns
+    console.log("🔄 Attempting minimal fallback query...");
     try {
+      // Get basic columns that should definitely exist
       const [usersSimple] = await connection.execute(`
         SELECT 
           id,
           ticket,
-          status,
           nama_lengkap,
-          nama_panggilan,
-          kelas,
-          jurusan,
-          tempat_lahir,
-          tanggal_lahir,
-          jenis_kelamin,
-          agama,
-          nomor_telepon,
-          email,
-          alamat,
-          hobi,
-          motto,
-          motivasi,
-          created_at,
-          updated_at
+          created_at
         FROM users 
         ORDER BY created_at DESC
       `);
       
-      console.log(`✅ Retrieved ${usersSimple.length} user records (fallback mode)`);
+      console.log(`✅ Retrieved ${usersSimple.length} user records (minimal mode)`);
       
-      // Add empty fields for missing data
+      // Add all missing fields with null values
       return usersSimple.map(user => ({
         ...user,
+        status: null,
+        nama_panggilan: null,
+        kelas: null,
+        jurusan: null,
+        tempat_lahir: null,
+        tanggal_lahir: null,
+        jenis_kelamin: null,
+        agama: null,
+        nomor_telepon: null,
+        email: null,
+        alamat: null,
+        hobi: null,
+        motto: null,
+        motivasi: null,
+        foto_path: null,
+        updated_at: null,
+        created_by: null,
+        updated_by: null,
         divisi_list: null,
         organisasi_list: null,
         prestasi_list: null
       }));
     } catch (fallbackError) {
-      console.error("❌ Fallback query also failed:", fallbackError);
-      throw fallbackError;
+      console.error("❌ Minimal fallback query also failed:", fallbackError);
+      
+      // Last resort: try to get just the count to see if table exists
+      try {
+        const [count] = await connection.execute(`SELECT COUNT(*) as total FROM users`);
+        console.log(`⚠️ Table exists but column access failed. Total records: ${count[0].total}`);
+        
+        // Return empty structure
+        return [];
+      } catch (finalError) {
+        console.error("❌ Table might not exist:", finalError);
+        throw new Error(`Cannot access users table: ${finalError.message}`);
+      }
     }
   }
 }
@@ -515,7 +551,8 @@ async function generateProfessionalExcelReport() {
     currentRow += 3; // Space for stats section
 
     // ═══ Column Definitions ═══
-    const modernColumns = [
+    // Create dynamic columns based on available data
+    const baseColumns = [
       { header: "No", key: "no", width: 6 },
       { header: "👤 Nama Lengkap", key: "nama_lengkap", width: 28 },
       { header: "📝 Panggilan", key: "nama_panggilan", width: 16 },
@@ -525,7 +562,16 @@ async function generateProfessionalExcelReport() {
       { header: "⚧ Gender", key: "jenis_kelamin", width: 10 },
       { header: "🕌 Agama", key: "agama", width: 12 },
       { header: "📱 Telepon", key: "nomor_telepon", width: 16 },
-      { header: "📧 Email", key: "email", width: 26 },
+    ];
+
+    // Check if users have email data before adding email column
+    const hasEmailData = users.some(user => user.email && user.email !== null);
+    if (hasEmailData) {
+      baseColumns.push({ header: "📧 Email", key: "email", width: 26 });
+    }
+
+    const modernColumns = [
+      ...baseColumns,
       { header: "🏠 Alamat", key: "alamat", width: 35 },
       { header: "🎯 Hobi", key: "hobi", width: 22 },
       { header: "💭 Motto", key: "motto", width: 32 },
@@ -560,7 +606,6 @@ async function generateProfessionalExcelReport() {
         jenis_kelamin: user.jenis_kelamin || "-",
         agama: user.agama || "-",
         nomor_telepon: user.nomor_telepon || "-",
-        email: user.email || "-",
         alamat: user.alamat || "-",
         hobi: user.hobi || "-",
         motto: user.motto || "-",
@@ -571,6 +616,11 @@ async function generateProfessionalExcelReport() {
         status: user.status || "PENDING",
         created_at: formatDateTime(user.created_at),
       };
+
+      // Only add email if the column exists
+      if (hasEmailData) {
+        rowData.email = user.email || "-";
+      }
 
       const row = worksheet.addRow(rowData);
       applyModernRowStyles(row, rowData, index);
