@@ -347,31 +347,94 @@ function calculateStatistics(users) {
 async function fetchComprehensiveUsersData(connection) {
   console.log("🔍 Fetching comprehensive user data...");
 
-  const [users] = await connection.execute(`
-    SELECT 
-      u.*,
-      GROUP_CONCAT(DISTINCT d.nama_divisi ORDER BY d.nama_divisi SEPARATOR ', ') as divisi_list,
-      GROUP_CONCAT(DISTINCT 
-        CONCAT(o.nama_organisasi, ' (', COALESCE(o.jabatan, 'Anggota'), ' - ', o.tahun, ')') 
-        ORDER BY o.tahun DESC 
-        SEPARATOR ';\n'
-      ) as organisasi_list,
-      GROUP_CONCAT(DISTINCT 
-        CONCAT(p.nama_prestasi, ' - ', p.tingkat, ' (', p.tahun, ')') 
-        ORDER BY p.tahun DESC 
-        SEPARATOR ';\n'
-      ) as prestasi_list
-    FROM users u
-    LEFT JOIN divisi d ON u.id = d.user_id
-    LEFT JOIN organisasi o ON u.id = o.user_id  
-    LEFT JOIN prestasi p ON u.id = p.user_id
-    WHERE u.deleted_at IS NULL
-    GROUP BY u.id
-    ORDER BY u.created_at DESC
-  `);
+  try {
+    const [users] = await connection.execute(`
+      SELECT 
+        u.id,
+        u.ticket,
+        u.status,
+        u.nama_lengkap,
+        u.nama_panggilan,
+        u.kelas,
+        u.jurusan,
+        u.tempat_lahir,
+        u.tanggal_lahir,
+        u.jenis_kelamin,
+        u.agama,
+        u.nomor_telepon,
+        u.email,
+        u.alamat,
+        u.hobi,
+        u.motto,
+        u.motivasi,
+        u.created_at,
+        u.updated_at,
+        GROUP_CONCAT(DISTINCT d.nama_divisi ORDER BY d.nama_divisi SEPARATOR ', ') as divisi_list,
+        GROUP_CONCAT(DISTINCT 
+          CONCAT(o.nama_organisasi, ' (', COALESCE(o.jabatan, 'Anggota'), ' - ', o.tahun, ')') 
+          ORDER BY o.tahun DESC 
+          SEPARATOR ';\n'
+        ) as organisasi_list,
+        GROUP_CONCAT(DISTINCT 
+          CONCAT(p.nama_prestasi, ' - ', p.tingkat, ' (', p.tahun, ')') 
+          ORDER BY p.tahun DESC 
+          SEPARATOR ';\n'
+        ) as prestasi_list
+      FROM users u
+      LEFT JOIN divisi d ON u.id = d.user_id
+      LEFT JOIN organisasi o ON u.id = o.user_id  
+      LEFT JOIN prestasi p ON u.id = p.user_id
+      GROUP BY u.id
+      ORDER BY u.created_at DESC
+    `);
 
-  console.log(`✅ Retrieved ${users.length} user records`);
-  return users;
+    console.log(`✅ Retrieved ${users.length} user records`);
+    return users;
+  } catch (error) {
+    console.error("❌ Error fetching comprehensive user data:", error);
+    
+    // Fallback: try simpler query without joins if main query fails
+    console.log("🔄 Attempting fallback query...");
+    try {
+      const [usersSimple] = await connection.execute(`
+        SELECT 
+          id,
+          ticket,
+          status,
+          nama_lengkap,
+          nama_panggilan,
+          kelas,
+          jurusan,
+          tempat_lahir,
+          tanggal_lahir,
+          jenis_kelamin,
+          agama,
+          nomor_telepon,
+          email,
+          alamat,
+          hobi,
+          motto,
+          motivasi,
+          created_at,
+          updated_at
+        FROM users 
+        ORDER BY created_at DESC
+      `);
+      
+      console.log(`✅ Retrieved ${usersSimple.length} user records (fallback mode)`);
+      
+      // Add empty fields for missing data
+      return usersSimple.map(user => ({
+        ...user,
+        divisi_list: null,
+        organisasi_list: null,
+        prestasi_list: null
+      }));
+    } catch (fallbackError) {
+      console.error("❌ Fallback query also failed:", fallbackError);
+      throw fallbackError;
+    }
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -582,7 +645,26 @@ async function generateProfessionalExcelReport() {
     };
   } catch (error) {
     console.error("❌ Excel generation failed:", error);
-    throw new Error(`Professional Excel generation failed: ${error.message}`);
+    
+    // Provide more specific error messages
+    let errorMessage = "Excel generation failed";
+    
+    if (error.code === 'ER_BAD_FIELD_ERROR') {
+      errorMessage = `Database column error: ${error.message}. Please check database schema.`;
+    } else if (error.code === 'ER_NO_SUCH_TABLE') {
+      errorMessage = `Database table not found: ${error.message}`;
+    } else if (error.message.includes('ENOENT')) {
+      errorMessage = "File system error: Unable to create export directory";
+    } else {
+      errorMessage = error.message;
+    }
+    
+    return {
+      success: false,
+      error: errorMessage,
+      code: error.code || 'UNKNOWN_ERROR',
+      timestamp: new Date().toISOString(),
+    };
   } finally {
     if (connection) {
       console.log("🔗 Releasing database connection...");
