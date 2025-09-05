@@ -873,7 +873,7 @@ Ketik /help untuk panduan lengkap penggunaan.
 
 <b>3. LIHAT SEMUA PENDAFTAR</b>
 <code>/daftar</code>
-→ Menampilkan 20 pendaftar terbaru
+→ Menampilkan semua pendaftar terdaftar
 
 <b>4. LIHAT DETAIL LENGKAP + FOTO</b>
 <code>/detail OSIS25-782753-E</code>
@@ -1646,7 +1646,7 @@ Butuh bantuan? Hubungi administrator.
       const connection = await getConnection();
       try {
         const [users] = await connection.execute(
-          "SELECT * FROM users ORDER BY created_at DESC LIMIT 20"
+          "SELECT * FROM users ORDER BY created_at DESC"
         );
 
         if (users.length === 0) {
@@ -1658,7 +1658,7 @@ Butuh bantuan? Hubungi administrator.
           return;
         }
 
-        let listMessage = `📋 <b>DAFTAR PENDAFTAR OSIS</b>\n\n📊 Total: <b>${users.length}</b> pendaftar (20 terbaru)\n\n`;
+        let listMessage = `📋 <b>DAFTAR PENDAFTAR OSIS</b>\n\n📊 Total: <b>${users.length}</b> pendaftar\n\n`;
 
         users.forEach((user, index) => {
           const statusIcon = this.getStatusIcon(user.status);
@@ -1674,14 +1674,22 @@ Butuh bantuan? Hubungi administrator.
         listMessage += `💡 Gunakan <code>/detail [tiket]</code> untuk info lengkap.\n`;
         listMessage += `💡 Gunakan <code>/search [nama]</code> untuk mencari pendaftar.`;
 
-        // Split message if too long
-        if (listMessage.length > 4000) {
-          const messages = this.splitMessage(listMessage, 4000);
-          for (const msg of messages) {
+        // Split message if too long - with better length management
+        const maxLength = 4000;
+        if (listMessage.length > maxLength) {
+          const messages = this.splitMessage(listMessage, maxLength);
+          console.log(`📄 Message split into ${messages.length} parts due to length (${listMessage.length} chars)`);
+          
+          for (let i = 0; i < messages.length; i++) {
+            const msg = messages[i];
+            console.log(`📤 Sending part ${i + 1}/${messages.length} (${msg.length} chars)`);
             await this.bot.sendMessage(chatId, msg, { parse_mode: "HTML" });
-            await this.delay(500);
+            if (i < messages.length - 1) {
+              await this.delay(1000); // Longer delay between parts
+            }
           }
         } else {
+          console.log(`📤 Sending single message (${listMessage.length} chars)`);
           await this.bot.sendMessage(chatId, listMessage, {
             parse_mode: "HTML",
           });
@@ -2199,18 +2207,25 @@ Butuh bantuan? Hubungi administrator.
     const lines = message.split("\n");
 
     for (const line of lines) {
-      if ((current + line + "\n").length > maxLength) {
-        if (current) {
-          messages.push(current.trim());
-          current = "";
-        }
+      // Check if adding this line would exceed the limit
+      if ((current + line + "\n").length > maxLength && current.length > 0) {
+        // Add current message to array and start a new one
+        messages.push(current.trim());
+        current = "";
       }
       current += line + "\n";
     }
 
-    if (current) {
+    // Add the remaining content
+    if (current.trim()) {
       messages.push(current.trim());
     }
+
+    // Log split details for debugging
+    console.log(`📄 Message split: ${messages.length} parts, original length: ${message.length}`);
+    messages.forEach((msg, idx) => {
+      console.log(`📄 Part ${idx + 1}: ${msg.length} characters`);
+    });
 
     return messages;
   }
