@@ -24,9 +24,10 @@ class DatabaseManager {
       waitForConnections: true,
       connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT) || 50, // Increased from 20 to 50
       queueLimit: 0,
-      acquireTimeout: 30000, // Reduced from 60s to 30s for faster timeout
-      timeout: 30000, // Reduced from 60s to 30s
-      reconnect: true,
+      // Remove deprecated options that cause warnings in MySQL2
+      // acquireTimeout: 30000, // REMOVED - deprecated in MySQL2
+      // timeout: 30000, // REMOVED - deprecated in MySQL2  
+      // reconnect: true, // REMOVED - deprecated in MySQL2
       // Performance optimizations
       multipleStatements: false,
       supportBigNumbers: true,

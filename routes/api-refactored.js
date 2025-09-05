@@ -284,9 +284,9 @@ class RegistrationProcessor {
     
     // Debug: Log all reason fields in the form data
     console.log('🔍 DEBUG: Checking reason fields in form data:');
-    for (const key in userData) {
+    for (const key in body) {
       if (key.startsWith('alasan_')) {
-        console.log(`  ${key}: ${userData[key]}`);
+        console.log(`  ${key}: ${body[key]}`);
       }
     }
     
