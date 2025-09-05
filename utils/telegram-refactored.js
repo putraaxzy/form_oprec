@@ -327,8 +327,27 @@ class TelegramBotManager {
     // Divisions and reasons
     if (data.divisi && Array.isArray(data.divisi) && data.divisi.length > 0) {
       message += `🎯 <b>BIDANG PILIHAN & ALASAN</b>\n`;
+      
+      // Create reverse mapping to find original form field names
+      const reverseDivisionMapping = {
+        'Keagamaan': 'keagamaan',
+        'Kedisiplinan': 'kedisiplinan', 
+        'Kebersihan': 'kebersihan',
+        'Kewirausahaan': 'kewirausahaan',
+        'Olahraga': 'olahraga',
+        'Kesenian': 'kesenian',
+        'Sosial': 'sosial',
+        'Lingkungan Hidup': 'lingkungan_hidup',
+        'Kesehatan': 'kesehatan',
+        'Bakat Minat': 'bakat_minat',
+        'Media Jaringan': 'media_jaringan',
+        'Sekretaris': 'sekretaris'
+      };
+      
       for (const [index, div] of data.divisi.entries()) {
-        const alasanField = `alasan_${div}`;
+        // Use original form field name for reason field
+        const originalFieldName = reverseDivisionMapping[div] || div.toLowerCase().replace(/\s+/g, '_');
+        const alasanField = `alasan_${originalFieldName}`;
         const alasanText = data[alasanField] || "N/A";
         const formattedAlasan = await this._handleLongTextAsFile(
           alasanText,
