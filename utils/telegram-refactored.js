@@ -741,6 +741,7 @@ class TelegramBotManager {
 <b>⚙️ PERINTAH ADMIN:</b>
 ┣ ✅ /terima [tiket] - Terima pendaftar
 ┣ ❌ /tolak [tiket] [alasan] - Tolak pendaftar
+┣ ➕ /adddivisi [tiket] [divisi] [alasan] - Tambah divisi ke pendaftar
 ┣ 📊 /excel - Export data ke Excel
 ┣ 💾 /backup - Backup database
 ┗ 🗑 /hapus [tiket] - Hapus pendaftar
@@ -848,6 +849,11 @@ Ketik /help untuk panduan lengkap penggunaan.
     this.bot.onText(/\/push/, async (msg) => {
       await this.handlePushCommand(msg.chat.id);
     });
+
+    // Add Division command
+    this.bot.onText(/\/adddivisi (.+)/, async (msg, match) => {
+      await this.handleAddDivisionCommand(msg.chat.id, match[1]);
+    });
   }
 
   // Command handlers
@@ -913,6 +919,10 @@ Ketik /help untuk panduan lengkap penggunaan.
 <b>13. HAPUS PENDAFTAR</b>
 <code>/hapus OSIS25-782753-E</code>
 → Hapus data pendaftar (HATI-HATI!)
+
+<b>14. TAMBAH DIVISI KE PENDAFTAR</b>
+<code>/adddivisi OSIS25-782753-E Kedisiplinan Saya akan memberikan contoh baik...</code>
+→ Menambahkan pilihan divisi baru ke pendaftar
 
 <b>📝 WORKFLOW ADMIN:</b>
 1. Cek pendaftar: /daftar atau /stats
@@ -1061,6 +1071,99 @@ Butuh bantuan? Hubungi administrator.
     }
 
     return message;
+  }
+
+  // ADD DIVISION COMMAND - Add a new division to a user
+  async handleAddDivisionCommand(chatId, input) {
+    try {
+      const parts = input.trim().split(/\s+/); // Split by one or more spaces
+      const ticket = parts[0];
+      const divisionName = parts[1];
+      const reason = parts.slice(2).join(" ");
+
+      // Basic validation
+      if (!ticket || !divisionName || !reason) {
+        await this.bot.sendMessage(
+          chatId,
+          "❌ Format perintah tidak valid.\n\nGunakan format: <code>/adddivisi [tiket] [nama_divisi] [alasan]</code>\n\nContoh: <code>/adddivisi OSIS25-123456-A Kedisiplinan Saya akan memberikan contoh baik...</code>",
+          { parse_mode: "HTML" }
+        );
+        return;
+      }
+
+      // Validate ticket format
+      const ticketMatch = ticket.match(/OSIS25-\d{6}-[A-Z]/);
+      if (!ticketMatch) {
+        await this.bot.sendMessage(
+          chatId,
+          "❌ Format tiket tidak valid!\n\nGunakan format: <code>OSIS25-123456-A</code>",
+          { parse_mode: "HTML" }
+        );
+        return;
+      }
+
+      // Validate division name against ENUM values in database/mysql-database-refactored.js
+      const allowedDivisions = [
+        "Humas",
+        "Keamanan",
+        "Kebersihan",
+        "Keagamaan",
+        "Kewirausahaan",
+        "Olahraga",
+        "Seni",
+        "Teknologi",
+        "Akademik",
+        "Sosial",
+      ];
+      if (!allowedDivisions.includes(divisionName)) {
+        await this.bot.sendMessage(
+          chatId,
+          `❌ Nama divisi tidak valid. Pilihan yang tersedia: ${allowedDivisions.join(
+            ", "
+          )}`,
+          { parse_mode: "HTML" }
+        );
+        return;
+      }
+
+      console.log(
+        `➕ Adding division '${divisionName}' for ticket '${ticket}' with reason: '${reason}'`
+      );
+
+      const { dbManager } = require("../database/mysql-database-refactored");
+      const result = await dbManager.addDivisionToUser(
+        ticket,
+        divisionName,
+        reason
+      );
+
+      if (result.success) {
+        await this.bot.sendMessage(
+          chatId,
+          `✅ <b>Divisi berhasil ditambahkan!</b>\n\n` +
+            `👤 Tiket: <code>${ticket}</code>\n` +
+            `🎯 Divisi: <b>${divisionName}</b>\n` +
+            `💬 Alasan: ${reason}\n\n` +
+            `💡 Gunakan <code>/detail ${ticket}</code> untuk melihat detail pendaftar yang diperbarui.`,
+          { parse_mode: "HTML" }
+        );
+      } else {
+        await this.bot.sendMessage(
+          chatId,
+          `❌ Gagal menambahkan divisi: ${
+            result.message || "Terjadi kesalahan."
+          }`,
+          { parse_mode: "HTML" }
+        );
+      }
+    } catch (error) {
+      console.error("Error handling adddivisi command:", error);
+      await this.bot.sendMessage(
+        chatId,
+        `❌ Terjadi kesalahan saat menambahkan divisi:\n\n<code>${error.message}</code>`,
+        { parse_mode: "HTML" }
+      );
+    }
   }
 
   // ACCEPT COMMAND - Approve a registrant (now pending approval)

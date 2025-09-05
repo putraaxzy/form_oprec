@@ -1,6 +1,14 @@
 /**
- * Enhanced Excel Report Generator for OSIS Recruitment System
- * Generates a visually appealing and well-structured Excel report.
+ * ═══════════════════════════════════════════════════════════════════════════════
+ * 🎨 ENHANCED EXCEL REPORT GENERATOR FOR OSIS RECRUITMENT SYSTEM
+ * ═══════════════════════════════════════════════════════════════════════════════
+ *
+ * Generates visually appealing and professionally structured Excel reports
+ * with modern styling, responsive design, and comprehensive data visualization.
+ *
+ * @author OSIS Development Team
+ * @version 2.0.0
+ * @created 2025
  */
 
 const ExcelJS = require("exceljs");
@@ -8,267 +16,543 @@ const { getConnection } = require("../database/mysql-database-refactored");
 const path = require("path");
 const fs = require("fs");
 
-// -- Konstanta untuk Styling --
-// Memudahkan penggantian tema warna di satu tempat
-const STYLE_CONSTANTS = {
-  HEADER_FILL_COLOR: "FF4F81BD", // Biru tua
-  HEADER_FONT_COLOR: "FFFFFFFF", // Putih
-  ROW_LIGHT_FILL_COLOR: "FFDDEBF7", // Biru muda
-  ROW_DARK_FILL_COLOR: "FFFFFFFF", // Putih
-  STATUS_APPROVED_FILL: "FFC6EFCE",
-  STATUS_APPROVED_FONT: "FF006100",
-  STATUS_REJECTED_FILL: "FFFFC7CE",
-  STATUS_REJECTED_FONT: "FF9C0006",
-  STATUS_PENDING_FILL: "FFFFEB9C",
-  STATUS_PENDING_FONT: "FF9C5700",
-  BORDER_STYLE: {
-    top: { style: "thin" },
-    left: { style: "thin" },
-    bottom: { style: "thin" },
-    right: { style: "thin" },
+// ═══════════════════════════════════════════════════════════════════════════════
+// 🎨 DESIGN SYSTEM - Color Palette & Typography
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const DESIGN_SYSTEM = {
+  // 🎨 Primary Color Scheme
+  COLORS: {
+    PRIMARY: {
+      DARK: "FF1E3A8A", // Deep Blue
+      MEDIUM: "FF3B82F6", // Blue
+      LIGHT: "FFDBEAFE", // Light Blue
+      ACCENT: "FF06B6D4", // Cyan
+    },
+    NEUTRAL: {
+      WHITE: "FFFFFFFF", // Pure White
+      LIGHT_GRAY: "FFF8FAFC", // Very Light Gray
+      MEDIUM_GRAY: "FFE2E8F0", // Medium Gray
+      DARK_GRAY: "FF475569", // Dark Gray
+    },
+    STATUS: {
+      SUCCESS: {
+        BG: "FFDCFCE7", // Light Green
+        TEXT: "FF166534", // Dark Green
+      },
+      WARNING: {
+        BG: "FFFEF3C7", // Light Yellow
+        TEXT: "FF92400E", // Dark Orange
+      },
+      DANGER: {
+        BG: "FFFECACA", // Light Red
+        TEXT: "FF991B1B", // Dark Red
+      },
+    },
+  },
+
+  // 📝 Typography Scale
+  TYPOGRAPHY: {
+    TITLE: { size: 18, bold: true },
+    SUBTITLE: { size: 14, bold: true },
+    HEADER: { size: 12, bold: true },
+    BODY: { size: 11, bold: false },
+    SMALL: { size: 10, bold: false },
+  },
+
+  // 🎯 Spacing & Dimensions
+  SPACING: {
+    TITLE_HEIGHT: 50,
+    SUBTITLE_HEIGHT: 35,
+    HEADER_HEIGHT: 32,
+    ROW_HEIGHT: 28,
+    EXPANDED_ROW_HEIGHT: 45,
+  },
+
+  // 🔲 Border Styles
+  BORDERS: {
+    THIN: { style: "thin", color: { argb: "FFE2E8F0" } },
+    MEDIUM: { style: "medium", color: { argb: "FF94A3B8" } },
+    THICK: { style: "thick", color: { argb: "FF64748B" } },
   },
 };
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// 🎨 STYLING UTILITIES
+// ═══════════════════════════════════════════════════════════════════════════════
+
 /**
- * Menerapkan gaya pada baris header.
- * @param {ExcelJS.Row} headerRow - Objek baris header dari worksheet.
+ * 🎨 Apply modern title styling with gradient effect simulation
+ * @param {ExcelJS.Cell} cell - The title cell
+ * @param {string} title - Title text
  */
-function applyHeaderStyle(headerRow) {
-  headerRow.font = {
-    bold: true,
-    color: { argb: STYLE_CONSTANTS.HEADER_FONT_COLOR },
-    size: 12,
+function applyTitleStyle(cell, title) {
+  cell.value = title;
+  cell.font = {
+    ...DESIGN_SYSTEM.TYPOGRAPHY.TITLE,
+    color: { argb: DESIGN_SYSTEM.COLORS.PRIMARY.DARK },
+    name: "Segoe UI",
   };
-  headerRow.fill = {
+  cell.fill = {
     type: "pattern",
     pattern: "solid",
-    fgColor: { argb: STYLE_CONSTANTS.HEADER_FILL_COLOR },
+    fgColor: { argb: DESIGN_SYSTEM.COLORS.PRIMARY.LIGHT },
   };
-  headerRow.alignment = {
+  cell.alignment = {
     horizontal: "center",
     vertical: "middle",
   };
-  headerRow.height = 30; // Tinggi baris header ditambah
+  cell.border = {
+    top: DESIGN_SYSTEM.BORDERS.MEDIUM,
+    bottom: DESIGN_SYSTEM.BORDERS.MEDIUM,
+    left: DESIGN_SYSTEM.BORDERS.MEDIUM,
+    right: DESIGN_SYSTEM.BORDERS.MEDIUM,
+  };
 }
 
 /**
- * Menerapkan gaya pada sel data dan seluruh baris.
- * @param {ExcelJS.Row} row - Objek baris yang sedang diproses.
- * @param {object} rowData - Data untuk baris tersebut.
- * @param {number} index - Indeks baris (0-based).
+ * 🎯 Apply professional header styling with modern design
+ * @param {ExcelJS.Row} headerRow - The header row object
  */
-function applyRowStyles(row, rowData, index) {
-  // Warna baris selang-seling (zebra stripes) untuk keterbacaan
-  const fillColor =
-    index % 2 === 0
-      ? STYLE_CONSTANTS.ROW_LIGHT_FILL_COLOR
-      : STYLE_CONSTANTS.ROW_DARK_FILL_COLOR;
+function applyModernHeaderStyle(headerRow) {
+  headerRow.height = DESIGN_SYSTEM.SPACING.HEADER_HEIGHT;
 
-  row.fill = {
-    type: "pattern",
-    pattern: "solid",
-    fgColor: { argb: fillColor },
-  };
-  row.alignment = { vertical: "middle", wrapText: true }; // Terapkan wrapText ke semua sel
-  row.height = 40; // Menambah tinggi baris untuk padding
+  headerRow.eachCell((cell) => {
+    // Modern header styling
+    cell.font = {
+      ...DESIGN_SYSTEM.TYPOGRAPHY.HEADER,
+      color: { argb: DESIGN_SYSTEM.COLORS.NEUTRAL.WHITE },
+      name: "Segoe UI Semibold",
+    };
 
-  // Pewarnaan status berdasarkan kondisi
-  const statusCell = row.getCell("status");
-  const statusUpper = (rowData.status || "PENDING").toUpperCase();
-
-  let statusStyle = {
-    fill: {
+    cell.fill = {
       type: "pattern",
       pattern: "solid",
-      fgColor: { argb: STYLE_CONSTANTS.STATUS_PENDING_FILL },
-    },
-    font: { color: { argb: STYLE_CONSTANTS.STATUS_PENDING_FONT }, bold: true },
-  };
-
-  if (statusUpper === "LOLOS" || statusUpper === "APPROVED") {
-    statusStyle = {
-      fill: {
-        type: "pattern",
-        pattern: "solid",
-        fgColor: { argb: STYLE_CONSTANTS.STATUS_APPROVED_FILL },
-      },
-      font: {
-        color: { argb: STYLE_CONSTANTS.STATUS_APPROVED_FONT },
-        bold: true,
-      },
+      fgColor: { argb: DESIGN_SYSTEM.COLORS.PRIMARY.DARK },
     };
-  } else if (statusUpper === "DITOLAK" || statusUpper === "REJECTED") {
-    statusStyle = {
-      fill: {
-        type: "pattern",
-        pattern: "solid",
-        fgColor: { argb: STYLE_CONSTANTS.STATUS_REJECTED_FILL },
-      },
-      font: {
-        color: { argb: STYLE_CONSTANTS.STATUS_REJECTED_FONT },
-        bold: true,
-      },
-    };
-  }
 
-  statusCell.fill = statusStyle.fill;
-  statusCell.font = statusStyle.font;
-  statusCell.alignment = { horizontal: "center", vertical: "middle" };
+    cell.alignment = {
+      horizontal: "center",
+      vertical: "middle",
+      wrapText: true,
+    };
+
+    cell.border = {
+      top: DESIGN_SYSTEM.BORDERS.THIN,
+      left: DESIGN_SYSTEM.BORDERS.THIN,
+      bottom: DESIGN_SYSTEM.BORDERS.MEDIUM,
+      right: DESIGN_SYSTEM.BORDERS.THIN,
+    };
+  });
 }
 
 /**
- * Mengambil data pengguna dari database.
- * @param {object} connection - Koneksi database.
- * @returns {Promise<Array>} - Array data pengguna.
+ * 🎨 Apply alternating row styles with modern card-like appearance
+ * @param {ExcelJS.Row} row - Row object
+ * @param {object} rowData - Data for the row
+ * @param {number} index - Row index
  */
-async function fetchUsersData(connection) {
+function applyModernRowStyles(row, rowData, index) {
+  const isEvenRow = index % 2 === 0;
+
+  // Set row height based on content
+  row.height = hasLongContent(rowData)
+    ? DESIGN_SYSTEM.SPACING.EXPANDED_ROW_HEIGHT
+    : DESIGN_SYSTEM.SPACING.ROW_HEIGHT;
+
+  row.eachCell((cell, colNumber) => {
+    // Base styling for all cells
+    cell.font = {
+      ...DESIGN_SYSTEM.TYPOGRAPHY.BODY,
+      name: "Segoe UI",
+      color: { argb: DESIGN_SYSTEM.COLORS.DARK_GRAY },
+    };
+
+    cell.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: {
+        argb: isEvenRow
+          ? DESIGN_SYSTEM.COLORS.NEUTRAL.LIGHT_GRAY
+          : DESIGN_SYSTEM.COLORS.NEUTRAL.WHITE,
+      },
+    };
+
+    cell.alignment = {
+      vertical: "middle",
+      wrapText: true,
+      horizontal: getColumnAlignment(colNumber),
+    };
+
+    cell.border = {
+      top: DESIGN_SYSTEM.BORDERS.THIN,
+      left: DESIGN_SYSTEM.BORDERS.THIN,
+      bottom: DESIGN_SYSTEM.BORDERS.THIN,
+      right: DESIGN_SYSTEM.BORDERS.THIN,
+    };
+  });
+
+  // Special styling for status column
+  applyStatusStyling(row, rowData.status);
+}
+
+/**
+ * 🎯 Apply status-specific styling with modern badges
+ * @param {ExcelJS.Row} row - Row object
+ * @param {string} status - Status value
+ */
+function applyStatusStyling(row, status) {
+  const statusCell = row.getCell("status");
+  const statusUpper = (status || "PENDING").toUpperCase();
+
+  let statusStyle = DESIGN_SYSTEM.COLORS.STATUS.WARNING; // Default: Pending
+
+  if (["LOLOS", "APPROVED", "DITERIMA"].includes(statusUpper)) {
+    statusStyle = DESIGN_SYSTEM.COLORS.STATUS.SUCCESS;
+  } else if (["DITOLAK", "REJECTED", "GAGAL"].includes(statusUpper)) {
+    statusStyle = DESIGN_SYSTEM.COLORS.STATUS.DANGER;
+  }
+
+  statusCell.fill = {
+    type: "pattern",
+    pattern: "solid",
+    fgColor: { argb: statusStyle.BG },
+  };
+
+  statusCell.font = {
+    ...DESIGN_SYSTEM.TYPOGRAPHY.BODY,
+    bold: true,
+    color: { argb: statusStyle.TEXT },
+    name: "Segoe UI Semibold",
+  };
+
+  statusCell.alignment = {
+    horizontal: "center",
+    vertical: "middle",
+  };
+}
+
+/**
+ * 🔍 Check if row data contains long content requiring expanded height
+ * @param {object} rowData - Row data object
+ * @returns {boolean}
+ */
+function hasLongContent(rowData) {
+  const longFields = [
+    "alamat",
+    "motto",
+    "motivasi",
+    "organisasi_list",
+    "prestasi_list",
+  ];
+  return longFields.some(
+    (field) => rowData[field] && rowData[field].length > 50
+  );
+}
+
+/**
+ * 📐 Get appropriate alignment for column
+ * @param {number} colNumber - Column number (1-based)
+ * @returns {string}
+ */
+function getColumnAlignment(colNumber) {
+  // Column 1 (No) - center
+  if (colNumber === 1) return "center";
+  // Numeric-like columns - center
+  if ([4, 7, 9, 18, 19].includes(colNumber)) return "center";
+  // Default - left
+  return "left";
+}
+
+/**
+ * 🎨 Create modern info section with statistics
+ * @param {ExcelJS.Worksheet} worksheet - Worksheet object
+ * @param {Array} users - Users data
+ * @param {number} startRow - Starting row number
+ */
+function addModernInfoSection(worksheet, users, startRow) {
+  // Info section header
+  const infoHeaderRow = worksheet.getRow(startRow);
+  worksheet.mergeCells(`A${startRow}:D${startRow}`);
+
+  const infoCell = worksheet.getCell(`A${startRow}`);
+  infoCell.value = "📊 RINGKASAN DATA";
+  infoCell.font = {
+    ...DESIGN_SYSTEM.TYPOGRAPHY.SUBTITLE,
+    color: { argb: DESIGN_SYSTEM.COLORS.PRIMARY.DARK },
+  };
+  infoCell.fill = {
+    type: "pattern",
+    pattern: "solid",
+    fgColor: { argb: DESIGN_SYSTEM.COLORS.PRIMARY.LIGHT },
+  };
+  infoCell.alignment = { horizontal: "center", vertical: "middle" };
+  infoHeaderRow.height = DESIGN_SYSTEM.SPACING.SUBTITLE_HEIGHT;
+
+  // Statistics
+  const stats = calculateStatistics(users);
+  const statsRow = startRow + 1;
+
+  const statLabels = [
+    `Total Pendaftar: ${stats.total}`,
+    `Lolos: ${stats.approved}`,
+    `Ditolak: ${stats.rejected}`,
+    `Pending: ${stats.pending}`,
+  ];
+
+  statLabels.forEach((label, index) => {
+    const cell = worksheet.getCell(statsRow, index + 1);
+    cell.value = label;
+    cell.font = DESIGN_SYSTEM.TYPOGRAPHY.SMALL;
+    cell.alignment = { horizontal: "center", vertical: "middle" };
+  });
+}
+
+/**
+ * 📊 Calculate data statistics
+ * @param {Array} users - Users data
+ * @returns {object} Statistics object
+ */
+function calculateStatistics(users) {
+  const stats = {
+    total: users.length,
+    approved: 0,
+    rejected: 0,
+    pending: 0,
+  };
+
+  users.forEach((user) => {
+    const status = (user.status || "PENDING").toUpperCase();
+    if (["LOLOS", "APPROVED", "DITERIMA"].includes(status)) {
+      stats.approved++;
+    } else if (["DITOLAK", "REJECTED", "GAGAL"].includes(status)) {
+      stats.rejected++;
+    } else {
+      stats.pending++;
+    }
+  });
+
+  return stats;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 🗄️ DATABASE OPERATIONS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * 🔍 Fetch comprehensive user data from database with optimized query
+ * @param {object} connection - Database connection
+ * @returns {Promise<Array>} Users data array
+ */
+async function fetchComprehensiveUsersData(connection) {
+  console.log("🔍 Fetching comprehensive user data...");
+
   const [users] = await connection.execute(`
     SELECT 
       u.*,
-      GROUP_CONCAT(DISTINCT d.nama_divisi SEPARATOR ', ') as divisi_list,
-      GROUP_CONCAT(DISTINCT CONCAT(o.nama_organisasi, ' (', o.jabatan, ' - ', o.tahun, ')') SEPARATOR ';\\n') as organisasi_list,
-      GROUP_CONCAT(DISTINCT CONCAT(p.nama_prestasi, ' - ', p.tingkat, ' (', p.tahun, ')') SEPARATOR ';\\n') as prestasi_list
+      GROUP_CONCAT(DISTINCT d.nama_divisi ORDER BY d.nama_divisi SEPARATOR ', ') as divisi_list,
+      GROUP_CONCAT(DISTINCT 
+        CONCAT(o.nama_organisasi, ' (', COALESCE(o.jabatan, 'Anggota'), ' - ', o.tahun, ')') 
+        ORDER BY o.tahun DESC 
+        SEPARATOR ';\n'
+      ) as organisasi_list,
+      GROUP_CONCAT(DISTINCT 
+        CONCAT(p.nama_prestasi, ' - ', p.tingkat, ' (', p.tahun, ')') 
+        ORDER BY p.tahun DESC 
+        SEPARATOR ';\n'
+      ) as prestasi_list
     FROM users u
     LEFT JOIN divisi d ON u.id = d.user_id
     LEFT JOIN organisasi o ON u.id = o.user_id  
     LEFT JOIN prestasi p ON u.id = p.user_id
+    WHERE u.deleted_at IS NULL
     GROUP BY u.id
     ORDER BY u.created_at DESC
   `);
+
+  console.log(`✅ Retrieved ${users.length} user records`);
   return users;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// 📊 MAIN EXCEL GENERATION FUNCTION
+// ═══════════════════════════════════════════════════════════════════════════════
+
 /**
- * Generate an enhanced Excel report with complete user data
+ * 🚀 Generate professionally styled Excel report with modern design
+ * @returns {Promise<object>} Generation result object
  */
-async function generateEnhancedExcelReport() {
+async function generateProfessionalExcelReport() {
   let connection;
+  const startTime = Date.now();
 
   try {
-    console.log("📊 Generating enhanced Excel report...");
+    console.log("🚀 Initiating professional Excel report generation...");
     connection = await getConnection();
 
-    const users = await fetchUsersData(connection);
+    // Fetch data
+    const users = await fetchComprehensiveUsersData(connection);
 
     if (users.length === 0) {
-      console.log("⚠️ No users found for Excel export.");
-      return null;
+      console.log("⚠️  No users found for Excel export.");
+      return {
+        success: false,
+        message: "No data available for export",
+      };
     }
 
-    console.log(`📈 Found ${users.length} users for Excel export.`);
+    console.log(`📊 Processing ${users.length} user records...`);
 
-    // --- Pembuatan Workbook dan Worksheet ---
+    // ═══ Create Professional Workbook ═══
     const workbook = new ExcelJS.Workbook();
-    workbook.creator = "OSIS Recruitment System";
+    workbook.creator = "OSIS Recruitment System v2.0";
     workbook.created = new Date();
-    const worksheet = workbook.addWorksheet("Data Pendaftar OSIS");
+    workbook.modified = new Date();
+    workbook.company = "SMA Negeri - OSIS";
 
-    // --- Menambahkan Judul Laporan ---
-    worksheet.mergeCells("A1:T1"); // Sesuaikan dengan jumlah kolom
-    const titleCell = worksheet.getCell("A1");
-    titleCell.value = "Laporan Lengkap Pendaftaran Anggota OSIS";
-    titleCell.font = { size: 16, bold: true, color: { argb: "FF4F81BD" } };
-    titleCell.alignment = { horizontal: "center", vertical: "middle" };
-    worksheet.getRow(1).height = 40;
+    const worksheet = workbook.addWorksheet("📋 Data Pendaftar OSIS", {
+      properties: { tabColor: { argb: DESIGN_SYSTEM.COLORS.PRIMARY.MEDIUM } },
+    });
 
-    // Menambahkan baris kosong sebagai pemisah
-    worksheet.addRow([]);
+    // ═══ Report Title Section ═══
+    let currentRow = 1;
+    worksheet.mergeCells(`A${currentRow}:S${currentRow}`);
+    const titleCell = worksheet.getCell(`A${currentRow}`);
+    applyTitleStyle(
+      titleCell,
+      "🏫 LAPORAN KOMPREHENSIF PENDAFTARAN ANGGOTA OSIS"
+    );
+    worksheet.getRow(currentRow).height = DESIGN_SYSTEM.SPACING.TITLE_HEIGHT;
+    currentRow++;
 
-    // --- Definisi Kolom ---
-    // Dipindah setelah penambahan judul untuk row yang lebih akurat
-    const columns = [
-      { header: "No", key: "no", width: 5 },
-      { header: "Nama Lengkap", key: "nama_lengkap", width: 30 },
-      { header: "Panggilan", key: "nama_panggilan", width: 18 },
-      { header: "Kelas", key: "kelas", width: 10 },
-      { header: "Jurusan", key: "jurusan", width: 15 },
-      { header: "TTL", key: "ttl", width: 30 },
-      { header: "Gender", key: "jenis_kelamin", width: 12 },
-      { header: "Agama", key: "agama", width: 15 },
-      { header: "No. Telepon", key: "nomor_telepon", width: 18 },
-      { header: "Email", key: "email", width: 30 },
-      { header: "Alamat", key: "alamat", width: 45 },
-      { header: "Hobi", key: "hobi", width: 25 },
-      { header: "Motto", key: "motto", width: 40 },
-      { header: "Motivasi", key: "motivasi", width: 40 },
-      { header: "Pilihan Divisi", key: "divisi_list", width: 30 },
-      { header: "Pengalaman Organisasi", key: "organisasi_list", width: 45 },
-      { header: "Prestasi", key: "prestasi_list", width: 45 },
-      { header: "Status", key: "status", width: 15 },
-      { header: "Tanggal Daftar", key: "created_at", width: 20 },
+    // Date info
+    worksheet.mergeCells(`A${currentRow}:S${currentRow}`);
+    const dateCell = worksheet.getCell(`A${currentRow}`);
+    dateCell.value = `📅 Generated on: ${new Date().toLocaleDateString(
+      "id-ID",
+      {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      }
+    )}`;
+    dateCell.font = {
+      ...DESIGN_SYSTEM.TYPOGRAPHY.SMALL,
+      color: { argb: DESIGN_SYSTEM.COLORS.NEUTRAL.DARK_GRAY },
+      italic: true,
+    };
+    dateCell.alignment = { horizontal: "center", vertical: "middle" };
+    currentRow++;
+
+    // Statistics section
+    addModernInfoSection(worksheet, users, currentRow);
+    currentRow += 3; // Space for stats section
+
+    // ═══ Column Definitions ═══
+    const modernColumns = [
+      { header: "No", key: "no", width: 6 },
+      { header: "👤 Nama Lengkap", key: "nama_lengkap", width: 28 },
+      { header: "📝 Panggilan", key: "nama_panggilan", width: 16 },
+      { header: "🎓 Kelas", key: "kelas", width: 10 },
+      { header: "📚 Jurusan", key: "jurusan", width: 14 },
+      { header: "📍 Tempat, Tanggal Lahir", key: "ttl", width: 28 },
+      { header: "⚧ Gender", key: "jenis_kelamin", width: 10 },
+      { header: "🕌 Agama", key: "agama", width: 12 },
+      { header: "📱 Telepon", key: "nomor_telepon", width: 16 },
+      { header: "📧 Email", key: "email", width: 26 },
+      { header: "🏠 Alamat", key: "alamat", width: 35 },
+      { header: "🎯 Hobi", key: "hobi", width: 22 },
+      { header: "💭 Motto", key: "motto", width: 32 },
+      { header: "🔥 Motivasi", key: "motivasi", width: 35 },
+      { header: "🏢 Divisi Pilihan", key: "divisi_list", width: 24 },
+      { header: "🏆 Pengalaman Organisasi", key: "organisasi_list", width: 38 },
+      { header: "🥇 Prestasi", key: "prestasi_list", width: 38 },
+      { header: "📊 Status", key: "status", width: 14 },
+      { header: "📅 Tanggal Daftar", key: "created_at", width: 18 },
     ];
-    worksheet.columns = columns;
 
-    // --- Styling Header (di baris ke-3 sekarang) ---
-    const headerRow = worksheet.getRow(3);
-    applyHeaderStyle(headerRow);
+    worksheet.columns = modernColumns;
 
-    // --- Penambahan Data dan Styling Baris ---
+    // ═══ Apply Header Styling ═══
+    const headerRow = worksheet.getRow(currentRow);
+    applyModernHeaderStyle(headerRow);
+
+    // ═══ Process and Style Data Rows ═══
     users.forEach((user, index) => {
-      // Menggabungkan Tempat & Tanggal Lahir
-      const ttl =
-        user.tempat_lahir && user.tanggal_lahir
-          ? `${user.tempat_lahir}, ${new Date(
-              user.tanggal_lahir
-            ).toLocaleDateString("id-ID", {
-              day: "2-digit",
-              month: "long",
-              year: "numeric",
-            })}`
-          : "-";
+      currentRow++;
+
+      // Format birth place and date
+      const ttl = formatBirthInfo(user.tempat_lahir, user.tanggal_lahir);
 
       const rowData = {
         no: index + 1,
-        nama_lengkap: user.nama_lengkap,
+        nama_lengkap: user.nama_lengkap || "-",
         nama_panggilan: user.nama_panggilan || "-",
-        kelas: user.kelas,
-        jurusan: user.jurusan,
+        kelas: user.kelas || "-",
+        jurusan: user.jurusan || "-",
         ttl: ttl,
         jenis_kelamin: user.jenis_kelamin || "-",
         agama: user.agama || "-",
-        nomor_telepon: user.nomor_telepon,
+        nomor_telepon: user.nomor_telepon || "-",
         email: user.email || "-",
         alamat: user.alamat || "-",
         hobi: user.hobi || "-",
         motto: user.motto || "-",
         motivasi: user.motivasi || "-",
         divisi_list: user.divisi_list || "-",
-        organisasi_list: user.organisasi_list || "-",
-        prestasi_list: user.prestasi_list || "-",
+        organisasi_list: formatListData(user.organisasi_list),
+        prestasi_list: formatListData(user.prestasi_list),
         status: user.status || "PENDING",
-        created_at: new Date(user.created_at).toLocaleDateString("id-ID", {
-          hour: "2-digit",
-          minute: "2-digit",
-          day: "2-digit",
-          month: "long",
-          year: "numeric",
-        }),
+        created_at: formatDateTime(user.created_at),
       };
 
       const row = worksheet.addRow(rowData);
-      applyRowStyles(row, rowData, index);
+      applyModernRowStyles(row, rowData, index);
     });
 
-    // --- Terapkan Border ke seluruh tabel data ---
-    const dataRowCount = users.length;
-    for (let i = 3; i <= dataRowCount + 3; i++) {
-      // Mulai dari header row (3)
-      worksheet.getRow(i).eachCell((cell) => {
-        cell.border = STYLE_CONSTANTS.BORDER_STYLE;
-      });
-    }
+    // ═══ Advanced Excel Features ═══
+    // Freeze panes
+    worksheet.views = [
+      {
+        state: "frozen",
+        ySplit: currentRow - users.length,
+        activeCell: "A1",
+      },
+    ];
 
-    // --- Fitur Tambahan ---
-    worksheet.views = [{ state: "frozen", ySplit: 3 }]; // Freeze pane di bawah header
-    worksheet.autoFilter = `A3:${String.fromCharCode(
-      65 + columns.length - 1
-    )}3`;
+    // Auto filter
+    const lastColumn = String.fromCharCode(65 + modernColumns.length - 1);
+    worksheet.autoFilter = `A${currentRow - users.length}:${lastColumn}${
+      currentRow - users.length
+    }`;
 
-    // --- Penyimpanan File ---
-    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-    const fileName = `OSIS_Data_Lengkap_${timestamp}.xlsx`;
-    const tempDir = path.join(__dirname, "..", "temp");
+    // Print settings
+    worksheet.pageSetup = {
+      paperSize: 9, // A4
+      orientation: "landscape",
+      fitToPage: true,
+      margins: {
+        left: 0.7,
+        right: 0.7,
+        top: 0.75,
+        bottom: 0.75,
+        header: 0.3,
+        footer: 0.3,
+      },
+    };
 
+    // ═══ File Generation ═══
+    const timestamp = new Date()
+      .toISOString()
+      .replace(/[:.]/g, "-")
+      .split("T")[0];
+    const fileName = `OSIS_Comprehensive_Report_${timestamp}.xlsx`;
+    const tempDir = path.join(__dirname, "..", "exports");
+
+    // Ensure export directory exists
     if (!fs.existsSync(tempDir)) {
       fs.mkdirSync(tempDir, { recursive: true });
     }
@@ -276,29 +560,84 @@ async function generateEnhancedExcelReport() {
     const filePath = path.join(tempDir, fileName);
     await workbook.xlsx.writeFile(filePath);
 
-    console.log(`✅ Excel file generated successfully: ${fileName}`);
-
+    // Calculate generation metrics
+    const generationTime = ((Date.now() - startTime) / 1000).toFixed(2);
     const fileStats = fs.statSync(filePath);
     const fileSizeInMB = (fileStats.size / (1024 * 1024)).toFixed(2);
 
+    console.log(`✨ Professional Excel report generated successfully!`);
+    console.log(`📁 File: ${fileName}`);
+    console.log(`⚡ Generation time: ${generationTime}s`);
+    console.log(`📊 Records processed: ${users.length}`);
+    console.log(`💾 File size: ${fileSizeInMB} MB`);
+
     return {
+      success: true,
       filePath,
       fileName,
       totalRecords: users.length,
       fileSize: `${fileSizeInMB} MB`,
+      generationTime: `${generationTime}s`,
+      timestamp: new Date().toISOString(),
     };
-  } catch (err) {
-    console.error("❌ Excel generation error:", err);
-    throw new Error(`Excel generation failed: ${err.message}`);
+  } catch (error) {
+    console.error("❌ Excel generation failed:", error);
+    throw new Error(`Professional Excel generation failed: ${error.message}`);
   } finally {
     if (connection) {
-      console.log("🔗 Closing database connection.");
+      console.log("🔗 Releasing database connection...");
       connection.release();
     }
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// 🛠️ UTILITY FUNCTIONS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * 📅 Format birth information
+ */
+function formatBirthInfo(place, date) {
+  if (!place && !date) return "-";
+  if (!date) return place || "-";
+  if (!place) return new Date(date).toLocaleDateString("id-ID");
+
+  return `${place}, ${new Date(date).toLocaleDateString("id-ID", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  })}`;
+}
+
+/**
+ * 📝 Format list data for better readability
+ */
+function formatListData(data) {
+  if (!data || data === "-") return "-";
+  return data.replace(/;/g, "\n•").replace(/^/, "•");
+}
+
+/**
+ * 🕐 Format datetime
+ */
+function formatDateTime(datetime) {
+  return new Date(datetime).toLocaleDateString("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 📤 MODULE EXPORTS
+// ═══════════════════════════════════════════════════════════════════════════════
+
 module.exports = {
-  generateEnhancedExcelReport,
-  exportToExcel: generateEnhancedExcelReport, // Alias untuk compatibility
+  generateProfessionalExcelReport,
+  generateEnhancedExcelReport: generateProfessionalExcelReport, // Legacy compatibility
+  exportToExcel: generateProfessionalExcelReport, // Alternative alias
+  DESIGN_SYSTEM, // Export design system for external usage
 };

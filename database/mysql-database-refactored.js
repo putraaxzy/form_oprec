@@ -131,7 +131,7 @@ class DatabaseManager {
           SELECT TABLE_NAME FROM information_schema.TABLES 
           WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users'
         `);
-        
+
         if (tables.length > 0) {
           await connection.execute(`
             ALTER TABLE users MODIFY COLUMN status 
@@ -511,6 +511,69 @@ class DatabaseManager {
       return true;
     } catch (error) {
       await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+  }
+
+  async addDivisionToUser(ticket, divisionName, reason) {
+    const connection = await this.getConnection();
+    try {
+      await connection.beginTransaction();
+
+      // Get user ID from ticket
+      const [users] = await connection.execute(
+        "SELECT id FROM users WHERE ticket = ?",
+        [ticket]
+      );
+
+      if (users.length === 0) {
+        throw new Error("User not found with the provided ticket.");
+      }
+
+      const userId = users[0].id;
+
+      // Check if the division already exists for the user
+      const [existingDivisions] = await connection.execute(
+        "SELECT id FROM divisi WHERE user_id = ? AND nama_divisi = ?",
+        [userId, divisionName]
+      );
+
+      if (existingDivisions.length > 0) {
+        throw new Error(
+          `Division '${divisionName}' already exists for this user.`
+        );
+      }
+
+      // Insert new division
+      await connection.execute(
+        "INSERT INTO divisi (user_id, nama_divisi, alasan) VALUES (?, ?, ?)",
+        [userId, divisionName, reason]
+      );
+
+      // Log the action
+      await connection.execute(
+        `
+        INSERT INTO admin_logs (user_id, ticket, action, new_status, reason, admin_name)
+        VALUES (?, ?, 'UPDATE', 'DIVISION_ADDED', ?, 'TELEGRAM_ADMIN')
+      `,
+        [
+          userId,
+          ticket,
+          `Added division: ${divisionName} with reason: ${reason}`,
+        ]
+      );
+
+      await connection.commit();
+      console.log(`✅ Division '${divisionName}' added for user ${ticket}`);
+      return {
+        success: true,
+        message: `Division '${divisionName}' added successfully.`,
+      };
+    } catch (error) {
+      await connection.rollback();
+      console.error("❌ Error adding division to user:", error);
       throw error;
     } finally {
       connection.release();
