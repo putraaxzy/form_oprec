@@ -278,8 +278,17 @@ class RegistrationProcessor {
         console.warn(`⚠️ Unknown division value from form: ${div}`);
         return div; // Return original if no mapping found
       }
+      console.log(`✅ Division mapped: ${div} → ${mappedDiv}`);
       return mappedDiv;
     });
+    
+    // Debug: Log all reason fields in the form data
+    console.log('🔍 DEBUG: Checking reason fields in form data:');
+    for (const key in userData) {
+      if (key.startsWith('alasan_')) {
+        console.log(`  ${key}: ${userData[key]}`);
+      }
+    }
     
     // Validate mapped division names against allowed values
     const invalidDivisions = processed.divisi.filter(div => !ALLOWED_DIVISIONS.includes(div));
@@ -430,13 +439,19 @@ class RegistrationProcessor {
           const originalFieldName = reverseDivisionMapping[div] || div.toLowerCase().replace(/\s+/g, '_');
           const alasanField = `alasan_${originalFieldName}`;
           const alasan = userData[alasanField];
+          
+          console.log(`🔍 DEBUG: Processing division ${div}`);
+          console.log(`  Original field name: ${originalFieldName}`);
+          console.log(`  Looking for reason field: ${alasanField}`);
+          console.log(`  Reason value: ${alasan || 'NOT FOUND'}`);
+          
           if (alasan && alasan.trim()) {
             try {
               await connection.execute(
                 "INSERT INTO divisi (user_id, nama_divisi, alasan) VALUES (?, ?, ?)",
                 [userId, safeValue(div), safeValue(alasan)]
               );
-              console.log(`✅ Division ${div} saved with reason`);
+              console.log(`✅ Division ${div} saved with reason: ${alasan.substring(0, 50)}...`);
             } catch (divError) {
               console.error(`❌ Error saving division ${div}:`, divError);
               // Continue with other divisions instead of failing completely
@@ -444,6 +459,20 @@ class RegistrationProcessor {
                 console.warn(`⚠️ Division ${div} truncated, skipping...`);
               } else {
                 throw divError; // Re-throw other types of errors
+              }
+            }
+          } else {
+            console.warn(`⚠️ No reason found for division ${div}, saving without reason`);
+            try {
+              await connection.execute(
+                "INSERT INTO divisi (user_id, nama_divisi, alasan) VALUES (?, ?, ?)",
+                [userId, safeValue(div), safeValue('')]
+              );
+              console.log(`✅ Division ${div} saved without reason`);
+            } catch (divError) {
+              console.error(`❌ Error saving division ${div} without reason:`, divError);
+              if (divError.code !== 'WARN_DATA_TRUNCATED') {
+                throw divError;
               }
             }
           }
