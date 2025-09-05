@@ -223,7 +223,7 @@ class DatabaseManager {
         CREATE TABLE IF NOT EXISTS divisi (
           id INT PRIMARY KEY AUTO_INCREMENT,
           user_id INT NOT NULL,
-          nama_divisi ENUM('Keagamaan', 'Kedisiplinan', 'Bakat Minat', 'Jurnalistik', 'Media Jaringan') NOT NULL,
+          nama_divisi ENUM('Keagamaan', 'Kedisiplinan', 'Bakat Minat', 'Jurnalistik', 'Media Jaringan', 'Sekretaris') NOT NULL,
           alasan TEXT,
           priority INT DEFAULT 1,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

@@ -1104,16 +1104,12 @@ Butuh bantuan? Hubungi administrator.
 
       // Validate division name against ENUM values in database/mysql-database-refactored.js
       const allowedDivisions = [
-        "Humas",
-        "Keamanan",
-        "Kebersihan",
         "Keagamaan",
-        "Kewirausahaan",
-        "Olahraga",
-        "Seni",
-        "Teknologi",
-        "Akademik",
-        "Sosial",
+        "Kedisiplinan",
+        "Bakat Minat",
+        "Jurnalistik",
+        "Media Jaringan",
+        "Sekretaris",
       ];
       if (!allowedDivisions.includes(divisionName)) {
         await this.bot.sendMessage(
